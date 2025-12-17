@@ -1,0 +1,2176 @@
+<?php
+//====================== SUPPORT WOOCOMMERCE ============================================================================================
+function your_theme_setup() {
+    add_theme_support('woocommerce');
+    add_theme_support('post-thumbnails');
+    add_theme_support('title-tag');
+    add_theme_support('custom-logo');
+}
+add_action('after_setup_theme', 'your_theme_setup');
+
+// Создание страниц при активации темы
+function create_special_pages() {
+    // Страница акций
+    $sales_page = get_page_by_path('sales');
+    if (!$sales_page) {
+        $page_data = array(
+            'post_title'    => 'Акции',
+            'post_name'     => 'sales',
+            'post_content'  => '',
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_author'   => 1,
+        );
+        
+        $page_id = wp_insert_post($page_data);
+        if ($page_id && !is_wp_error($page_id)) {
+            update_post_meta($page_id, '_wp_page_template', 'page-sales.php');
+        }
+    }
+    
+    // Страница избранного
+    $favorites_page = get_page_by_path('favourites');
+    if (!$favorites_page) {
+        $page_data = array(
+            'post_title'    => 'Избранное',
+            'post_name'     => 'favourites',
+            'post_content'  => '',
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_author'   => 1,
+        );
+        
+        $page_id = wp_insert_post($page_data);
+        if ($page_id && !is_wp_error($page_id)) {
+            update_post_meta($page_id, '_wp_page_template', 'page-favourites.php');
+        }
+    }
+}
+add_action('after_switch_theme', 'create_special_pages');
+
+
+
+
+//====================== STYLE AND SCRIPT ============================================================================================
+function theme_scripts() {
+    // Основной скрипт темы
+    wp_enqueue_script('fls-notifications', get_template_directory_uri() . '/assets/js/notifications.js', array('jquery'), '1.0', true);
+    wp_enqueue_script('theme-main', get_template_directory_uri() . '/assets/js/app.js', array('jquery'), '1.0', true);
+    wp_enqueue_script('scroll', get_template_directory_uri() . '/assets/js/scroll.js', array(), '1.0', true);
+        
+    // WooCommerce скрипты (должны быть после уведомлений)
+    // WooCommerce скрипты
+    if (class_exists('WooCommerce')) {
+        wp_enqueue_script('wc-add-to-cart');
+        wp_enqueue_script('wc-cart-fragments');
+        
+        // Загружаем все скрипты товаров на странице товара
+        if (is_product()) {
+            wp_enqueue_script('wc-single-product');
+            wp_enqueue_script('wc-add-to-cart-variation');
+            wp_enqueue_script('product-scripts', get_template_directory_uri() . '/assets/js/product.js', array('jquery', 'wc-add-to-cart'), '1.0', true);
+            wp_enqueue_script('product-simple', get_template_directory_uri() . '/assets/js/product-simple.js', array('jquery', 'product-scripts'), '1.0', true);
+            wp_enqueue_script('product-variable', get_template_directory_uri() . '/assets/js/product-variable.js', array('jquery', 'wc-add-to-cart-variation', 'product-scripts'), '1.0', true);
+        }
+    }
+    
+    wp_enqueue_style('css', get_template_directory_uri() . '/assets/css/style.css', array(), '8.0.0');
+        
+    // Скрипт для избранного
+    wp_enqueue_script('favorites-script', get_template_directory_uri() . '/assets/js/favorites.js', array('jquery'), '1.0', true);
+    
+    // Передача переменных в JavaScript
+    wp_localize_script('favorites-script', 'favorites_ajax', array(
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('favorites_nonce')
+    ));
+
+    // AJAX фильтрация
+    if (is_front_page() || is_shop() || is_product_category() || is_product() || is_page_template('shop/page-favourites.php') || is_page_template('shop/page-sales.php')) {
+        wp_enqueue_script('ajax-filter', get_template_directory_uri() . '/assets/js/shop.js', array('jquery'), '1.0', true);
+        
+        wp_localize_script('ajax-filter', 'ajax_filter', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('filter_nonce')
+        ));
+    }
+
+    // Для главной странцы
+    if (is_front_page()) {
+        // Swiper.js для слайдера
+        // wp_enqueue_script('swiper-js', 'https://unpkg.com/swiper/swiper-bundle.min.js', array(), '8.0.0', true);
+        // wp_enqueue_style('swiper-css', 'https://unpkg.com/swiper/swiper-bundle.min.css', array(), '8.0.0');
+        
+        // Скрипт главной страницы
+        wp_enqueue_script('home-script', get_template_directory_uri() . '/assets/js/home.js', array('jquery'), '1.0', true);
+        
+        // Передача переменных
+        wp_localize_script('home-script', 'home_ajax', array(
+            'ajaxurl' => admin_url('admin-ajax.php')
+        ));
+    }
+
+    // Для страницы с корзиной
+    if (is_cart()) {
+        wp_enqueue_script('cart-quantity', get_template_directory_uri() . '/assets/js/cart-quantity.js', array('jquery'), '1.0', true);
+    }
+    
+    // WooCommerce AJAX для корзины
+    if (class_exists('WooCommerce')) {
+        wp_enqueue_script('wc-add-to-cart');
+        wp_enqueue_script('wc-cart-fragments');
+    }
+}
+add_action('wp_enqueue_scripts', 'theme_scripts');
+
+
+
+
+//====================== MENU ============================================================================================
+function your_theme_menus() {
+    register_nav_menus(array(
+        'primary' => 'Основное меню',
+        'footer' => 'Меню в подвале'
+    ));
+}
+add_action('init', 'your_theme_menus');
+
+
+
+
+//====================== SETTING THEME ============================================================================================
+
+function get_theme_setting($setting_name) {
+    return get_theme_mod($setting_name, '');
+}
+
+// Настройки главной страницы
+function home_page_customize_register($wp_customize) {
+    // Секция главной страницы
+    $wp_customize->add_section('home_page_settings', array(
+        'title' => 'Настройки главной страницы',
+        'priority' => 30,
+    ));
+
+    // Текст промо-секции
+    $wp_customize->add_setting('promo_text', array(
+        'default' => 'Оригинальные вещи Stone Island, CP Company, Premiata',
+        'sanitize_callback' => 'sanitize_text_field',
+    ));
+
+    $wp_customize->add_control('promo_text', array(
+        'label' => 'Текст промо-секции',
+        'section' => 'home_page_settings',
+        'type' => 'text',
+    ));
+
+    // Текст "О нас"
+    $wp_customize->add_setting('about_text', array(
+        'default' => 'Мы собираем лучшие вещи от проверенных брендов, чтобы вы могли обновлять гардероб легко и стильно. Простая навигация, актуальные коллекции и удобная покупка прямо в Telegram — всё, чтобы шопинг стал быстрым и приятным.',
+        'sanitize_callback' => 'wp_kses_post',
+    ));
+
+    $wp_customize->add_control('about_text', array(
+        'label' => 'Текст "О нас"',
+        'section' => 'home_page_settings',
+        'type' => 'textarea',
+    ));
+
+    // Изображение "О нас"
+    $wp_customize->add_setting('about_image');
+
+    $wp_customize->add_control(new WP_Customize_Image_Control($wp_customize, 'about_image', array(
+        'label' => 'Изображение "О нас"',
+        'section' => 'home_page_settings',
+    )));
+}
+add_action('customize_register', 'home_page_customize_register');
+
+// Создание типа записи для отзывов
+function create_testimonial_post_type() {
+    register_post_type('testimonial',
+        array(
+            'labels' => array(
+                'name' => 'Отзывы',
+                'singular_name' => 'Отзыв',
+            ),
+            'public' => true,
+            'has_archive' => false,
+            'supports' => array('title', 'editor', 'author'),
+            'menu_icon' => 'dashicons-testimonial',
+        )
+    );
+}
+add_action('init', 'create_testimonial_post_type');
+
+// Добавление мета-поля для ссылки на отзыв
+function add_testimonial_meta_box() {
+    add_meta_box(
+        'testimonial_link',
+        'Ссылка на отзыв',
+        'testimonial_link_callback',
+        'testimonial',
+        'normal',
+        'high'
+    );
+}
+add_action('add_meta_boxes', 'add_testimonial_meta_box');
+
+function testimonial_link_callback($post) {
+    $link = get_post_meta($post->ID, 'testimonial_link', true);
+    echo '<input type="url" name="testimonial_link" value="' . esc_url($link) . '" style="width: 100%;" placeholder="https://t.me/gnb_feedback/503">';
+}
+
+function save_testimonial_meta($post_id) {
+    if (array_key_exists('testimonial_link', $_POST)) {
+        update_post_meta(
+            $post_id,
+            'testimonial_link',
+            sanitize_url($_POST['testimonial_link'])
+        );
+    }
+}
+add_action('save_post', 'save_testimonial_meta');
+
+// AJAX загрузка товаров по категориям
+function load_products_by_category() {
+    $category = sanitize_text_field($_POST['category']);
+    
+    switch ($category) {
+        case 'new':
+            $shortcode = '[products limit="8" columns="4" orderby="date" order="DESC"]';
+            break;
+        case 'featured':
+            $shortcode = '[products limit="8" columns="4" visibility="featured"]';
+            break;
+        case 'men':
+            $shortcode = '[products limit="8" columns="4" category="men"]';
+            break;
+        case 'women':
+            $shortcode = '[products limit="8" columns="4" category="women"]';
+            break;
+        case 'accessories':
+            $shortcode = '[products limit="8" columns="4" category="accessories"]';
+            break;
+        default:
+            $shortcode = '[products limit="8" columns="4" orderby="popularity"]';
+    }
+    
+    wp_send_json_success(do_shortcode($shortcode));
+}
+add_action('wp_ajax_load_products_by_category', 'load_products_by_category');
+add_action('wp_ajax_nopriv_load_products_by_category', 'load_products_by_category');
+
+
+
+
+//====================== CUSTOM ============================================================================================
+// Кастомные настройки темы
+function your_theme_customize_register($wp_customize) {
+    // Секция для настроек темы
+    $wp_customize->add_section('theme_settings', array(
+        'title' => 'Настройки темы',
+        'priority' => 30,
+    ));
+
+    // Настройка телефона
+    $wp_customize->add_setting('phone_number', array(
+        'default' => '',
+        'sanitize_callback' => 'sanitize_text_field',
+    ));
+
+    $wp_customize->add_control('phone_number', array(
+        'label' => 'Номер телефона',
+        'section' => 'theme_settings',
+        'type' => 'text',
+    ));
+
+    // Настройка email
+    $wp_customize->add_setting('email_address', array(
+        'default' => '',
+        'sanitize_callback' => 'sanitize_email',
+    ));
+
+    $wp_customize->add_control('email_address', array(
+        'label' => 'Email адрес',
+        'section' => 'theme_settings',
+        'type' => 'email',
+    ));
+}
+add_action('customize_register', 'your_theme_customize_register');
+
+// Кастомное меню   
+class Custom_Walker_Nav_Menu extends Walker_Nav_Menu {
+    
+    function start_el(&$output, $item, $depth = 0, $args = array(), $id = 0) {
+        $classes = empty($item->classes) ? array() : (array) $item->classes;
+        $class_names = join(' ', apply_filters('nav_menu_css_class', array_filter($classes), $item));
+        
+        $output .= '<li class="menu__item ' . $class_names . '">';
+        
+        // Для профиля меняем URL если пользователь не авторизован
+        $url = $item->url;
+        if ($this->is_profile_item($item) && !is_user_logged_in()) {
+            $url = get_permalink(get_page_by_path('login'));
+        }
+        
+        $attributes = !empty($item->attr_title) ? ' title="' . esc_attr($item->attr_title) . '"' : '';
+        $attributes .= !empty($item->target) ? ' target="' . esc_attr($item->target) . '"' : '';
+        $attributes .= !empty($item->xfn) ? ' rel="' . esc_attr($item->xfn) . '"' : '';
+        $attributes .= ' href="' . esc_attr($url) . '"';
+        
+        // Добавляем иконки для определенных пунктов меню
+        $icon = $this->get_menu_icon($item);
+        
+        $item_output = $args->before;
+        $item_output .= '<a class="menu__link" ' . $attributes . ' title="' . esc_attr($item->title) . '">';
+        $item_output .= $icon;
+        $item_output .= '</a>';
+        $item_output .= $args->after;
+        
+        $output .= apply_filters('walker_nav_menu_start_el', $item_output, $item, $depth, $args);
+    }
+    
+    function end_el(&$output, $item, $depth = 0, $args = array()) {
+        $output .= '</li>';
+    }
+
+    private function get_menu_icon($item) {
+        $icons = [
+            'home' => [
+                'urls' => [home_url('/'), '/'],
+                'titles' => ['Главная', 'Home'],
+                'svg' => '<svg width="33" height="33" viewBox="0 0 33 33" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M17.3017 3.60017C16.5453 3.09468 15.6653 3.09468 14.9088 3.60017L14.8814 3.61811L4.92984 9.97988C3.83019 10.6814 3.22105 11.892 3.22105 13.1052V26.6962C3.22105 27.9794 4.23449 28.9895 5.50463 28.9895H26.7059C27.976 28.9895 28.9895 27.9794 28.9895 26.6962V13.1052C28.9895 11.8505 28.3258 10.7258 27.2493 9.95988L17.3291 3.61811L17.3017 3.60017ZM19.0767 0.912315C17.2444 -0.304116 14.9661 -0.3041 13.1338 0.912331L3.19619 7.26518C3.19596 7.26533 3.19641 7.26504 3.19619 7.26518C1.12328 8.58792 0 10.8484 0 13.1052V26.6962C0 29.7506 2.44798 32.2105 5.50463 32.2105H26.7059C29.7625 32.2105 32.2105 29.7506 32.2105 26.6962V13.1052C32.2105 10.6106 30.8659 8.56256 29.0732 7.30462C29.0544 7.29134 29.035 7.27845 29.0156 7.266L19.0767 0.912315Z" fill="#191919" /></svg>'
+            ],
+            'shop' => [
+                'urls' => ['/shop', 'shop'],
+                'titles' => ['Магазин'],
+                'svg' => '<svg width="32" height="29" viewBox="0 0 32 29" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M31.6046 4.94819L30.8065 2.71352C30.3276 1.11733 28.7314 0 27.1352 0H4.78857C3.19238 0 1.59619 1.11733 1.11733 2.71352L0.319238 4.94819C-0.319238 7.02324 -1.26854e-07 9.09829 1.27695 10.8541C1.59619 11.4926 2.23467 11.9714 2.71352 12.4503V22.6659C2.71352 26.1775 5.58667 28.8911 8.93867 28.8911H12.4503C13.408 28.8911 14.0465 28.2526 14.0465 27.2949V22.6659C14.0465 21.5486 14.8446 20.7505 15.9619 20.7505C17.0792 20.7505 17.8773 21.5486 17.8773 22.6659V27.2949C17.8773 28.2526 18.5158 28.8911 19.4735 28.8911H22.9851C26.4968 28.8911 29.2103 26.0179 29.2103 22.6659V17.5581C29.2103 16.6004 28.5718 15.9619 27.6141 15.9619C26.6564 15.9619 26.0179 16.6004 26.0179 17.5581V22.5063C26.0179 24.2621 24.5813 25.5391 22.9851 25.5391H21.0697V22.5063C21.0697 19.6331 18.8351 17.3985 15.9619 17.3985C13.0888 17.3985 10.8541 19.6331 10.8541 22.5063V25.5391H8.93867C7.18286 25.5391 5.90591 24.1025 5.90591 22.5063V13.5676C6.22514 13.5676 6.38476 13.5676 6.704 13.5676C8.45981 13.5676 10.2156 12.7695 11.333 11.4926C12.4503 12.9291 14.2061 13.7272 15.9619 13.7272C17.7177 13.7272 19.4735 12.9291 20.5909 11.6522C21.7082 12.9291 23.464 13.7272 25.2198 13.7272C27.4545 13.7272 29.3699 12.7695 30.6469 11.0137C31.9238 9.09829 32.2431 7.02324 31.6046 4.94819ZM28.093 9.09829C27.4545 10.056 26.4968 10.5349 25.3794 10.5349C23.9429 10.5349 22.6659 9.57715 22.3467 8.30019C22.1871 7.5021 21.389 7.02324 20.5909 7.02324C19.7928 7.02324 19.1543 7.5021 18.8351 8.30019C18.5158 9.57715 17.2389 10.5349 15.9619 10.5349C14.685 10.5349 13.408 9.57715 13.0888 8.30019C12.7695 7.5021 12.1311 7.02324 11.333 7.02324C10.5349 7.02324 9.73676 7.5021 9.57714 8.30019C9.25791 9.57715 7.98095 10.5349 6.704 10.5349C5.58667 10.5349 4.62895 10.056 3.83086 9.09829C3.19238 8.14057 3.03276 7.02324 3.352 5.90591L4.1501 3.67124C4.30972 3.352 4.46933 3.19238 4.78857 3.19238H27.1352C27.4545 3.19238 27.7737 3.352 27.7737 3.67124L28.5718 5.90591C28.8911 7.02324 28.7314 8.14057 28.093 9.09829Z" fill="#C0C4CB" /></svg>'
+            ],
+            'favourites' => [
+                'urls' => ['/favourites', 'favourites', '/wishlist', 'wishlist'],
+                'titles' => ['Избранное', 'Wishlist'],
+                'svg' => '<svg width="36" height="31" viewBox="0 0 36 31" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M25.5895 0C22.5474 0 19.8632 1.23091 17.8947 3.51689C15.9263 1.23091 13.2421 0 10.2 0C4.65263 0 0 4.57195 0 10.0231C0 10.3748 0 10.7265 0 11.0782C0.715789 19.3429 9.66316 26.2008 14.8526 29.5418C15.7474 30.0694 16.8211 30.4211 17.8947 30.4211C18.9684 30.4211 20.0421 30.0694 20.9368 29.5418C26.1263 26.2008 35.0737 19.3429 35.7895 11.254C35.7895 10.9023 35.7895 10.5506 35.7895 10.1989C35.7895 4.57195 31.1368 0 25.5895 0ZM32.2105 10.7265C31.6737 17.7603 22.7263 24.0906 18.9684 26.3766C18.2526 26.7283 17.5368 26.7283 16.8211 26.3766C13.0632 23.9148 4.29474 17.5844 3.57895 10.5506C3.57895 10.5506 3.57895 10.1989 3.57895 10.0231C3.57895 6.50629 6.62105 3.51689 10.2 3.51689C12.8842 3.51689 15.2105 5.09949 16.2842 7.38552C16.4632 8.08878 17.1789 8.44047 17.8947 8.44047C18.6105 8.44047 19.3263 8.08878 19.5053 7.38552C20.5789 5.09949 22.9053 3.51689 25.5895 3.51689C29.1684 3.51689 32.2105 6.50629 32.2105 10.0231C32.2105 10.1989 32.2105 10.5506 32.2105 10.7265Z" fill="#C0C4CB" /></svg>'
+            ],
+            'cart' => [
+                'urls' => ['/cart', 'cart', '/basket', 'basket'],
+                'titles' => ['Корзина', 'Cart', 'Basket'],
+                'svg' => '<svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.9262 0C25.2724 0 28.1628 2.58549 28.4672 5.93164L30.4438 23.2725C30.5958 25.0976 29.9877 26.9231 28.7709 28.292C27.5541 29.6607 25.7288 30.4209 23.9037 30.4209H6.5639C4.73885 30.4209 3.06558 29.6607 1.69672 28.292C0.479971 26.9232 -0.129084 25.0976 0.0228882 23.2725L2.15277 5.93164C2.45717 2.58552 5.19527 0 8.54144 0H21.9262ZM8.54144 3.04199C6.71619 3.04199 5.34687 4.41106 5.19476 6.23633L3.06488 23.5762C2.91278 24.4888 3.36955 25.4016 3.97797 26.1621C4.58639 26.9226 5.49921 27.2266 6.5639 27.2266H24.0561C24.9685 27.2264 25.8807 26.7703 26.6411 26.1621C27.2495 25.4016 27.5541 24.4888 27.5541 23.5762L25.2729 6.23633C25.1208 4.41106 23.7515 3.04199 21.9262 3.04199H8.54144ZM21.4702 5.01953C22.3828 5.01953 22.9916 5.62838 22.9916 6.54102C22.9915 10.7999 19.4927 14.2979 15.2338 14.2979C10.975 14.2978 7.47713 10.7998 7.47699 6.54102C7.47699 5.62845 8.08497 5.01961 8.9975 5.01953C9.91013 5.01953 10.519 5.62838 10.519 6.54102C10.5191 9.12664 12.6482 11.2558 15.2338 11.2559C17.8195 11.2559 19.9495 9.12669 19.9496 6.54102C19.9496 5.62843 20.5576 5.0196 21.4702 5.01953Z" fill="#C0C4CB" /></svg>'
+            ],
+            'sales' => [
+                'urls' => ['/stocks', 'stocks', '/sales', 'sales', '/promo', 'promo', '/discount', 'discount'],
+                'titles' => ['Акции', 'Sales', 'Promo'],
+                'svg' => '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M5 10C7.76142 10 10 7.76142 10 5C10 2.23858 7.76142 0 5 0C2.23858 0 0 2.23858 0 5C0 7.76142 2.23858 10 5 10Z" fill="#C0C4CB"/><path d="M26 30C28.7614 30 31 27.9853 31 25.5C31 23.0147 28.7614 21 26 21C23.2386 21 21 23.0147 21 25.5C21 27.9853 23.2386 30 26 30Z" fill="#C0C4CB"/><line x1="2" y1="29.1716" x2="29.1716" y2="2" stroke="#C0C4CB" stroke-width="4" stroke-linecap="round"/></svg>'
+            ],
+            'profile' => [
+                'urls' => ['/profile', 'profile', '/account', 'account', '/my-account', 'my-account', '/login', 'login'],
+                'titles' => ['Профиль', 'Личный кабинет', 'Account', 'Profile'],
+                'svg' => '<svg width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 0C26.35 6.50276e-08 34 7.65 34 17C34 26.35 26.35 34 17 34C7.65 34 6.50235e-08 26.35 0 17C0 7.65 7.65 0 17 0ZM17 3.40039C9.52 3.40039 3.40039 9.52 3.40039 17C3.40039 24.48 9.52 30.5996 17 30.5996C24.48 30.5996 30.5996 24.48 30.5996 17C30.5996 9.52 24.48 3.40039 17 3.40039ZM17.001 7.64941C21.0809 7.64947 24.3105 10.88 24.3105 14.96C24.3105 16.9999 23.4605 18.6996 22.2705 20.0596C23.8005 20.7396 25.1606 21.5903 26.3506 22.7803C27.0305 23.4603 27.0306 24.4802 26.3506 25.1602C25.6706 25.8398 24.6506 25.84 23.9707 25.1602C22.1007 23.2902 19.5509 22.2696 17.001 22.2695C14.281 22.2695 11.9012 23.2902 10.0312 25.1602C9.69125 25.5002 9.35082 25.6699 8.84082 25.6699C8.50082 25.6699 7.99039 25.5001 7.65039 25.1602C6.97061 24.4803 6.97087 23.4603 7.65039 22.7803C8.84035 21.5903 10.2006 20.7396 11.7305 20.0596C10.5407 18.6997 9.69047 16.9997 9.69043 14.96C9.69043 10.88 12.921 7.64941 17.001 7.64941ZM17.001 11.0498C14.791 11.0498 13.0908 12.75 13.0908 14.96C13.0909 17.1699 14.791 18.8701 17.001 18.8701C19.2109 18.8701 20.9111 17.1699 20.9111 14.96C20.9111 12.75 19.2109 11.0499 17.001 11.0498Z" fill="#C0C4CB" /></svg>'
+            ]
+        ];
+        
+        // Сначала проверяем по заголовку (более точное совпадение)
+        foreach ($icons as $icon_data) {
+            foreach ($icon_data['titles'] as $title) {
+                if (strtolower(trim($item->title)) === strtolower(trim($title))) {
+                    return $icon_data['svg'];
+                }
+            }
+        }
+        
+        // Затем проверяем по URL (менее точное, но как запасной вариант)
+        foreach ($icons as $icon_data) {
+            foreach ($icon_data['urls'] as $url) {
+                // Используем parse_url для получения пути
+                $item_path = parse_url($item->url, PHP_URL_PATH);
+                if ($item_path && strpos($item_path, $url) !== false) {
+                    return $icon_data['svg'];
+                }
+            }
+        }
+        
+        return '';
+    }
+    
+    private function is_profile_item($item) {
+        $profile_indicators = ['profile', 'account', 'my-account', 'Профиль', 'Личный кабинет'];
+        
+        foreach ($profile_indicators as $indicator) {
+            if (strpos($item->url, $indicator) !== false || 
+                strtolower(trim($item->title)) === strtolower(trim($indicator))) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+}
+
+// Кастомный вывод итогов корзины
+function custom_woocommerce_cart_totals() {
+    if (is_cart()) {
+        ?>
+        <table class="sidebar-cart__table shop_table shop_table_responsive">
+            <tr class="sidebar-cart__row cart-subtotal">
+                <th class="sidebar-cart__header"><?php esc_html_e('Subtotal', 'woocommerce'); ?></th>
+                <td class="sidebar-cart__data" data-title="<?php esc_attr_e('Subtotal', 'woocommerce'); ?>">
+                    <span class="sidebar-cart__amount"><?php wc_cart_totals_subtotal_html(); ?></span>
+                </td>
+            </tr>
+
+            <?php foreach (WC()->cart->get_coupons() as $code => $coupon) : ?>
+                <tr class="sidebar-cart__row sidebar-cart__row--discount cart-discount coupon-<?php echo esc_attr(sanitize_title($code)); ?>">
+                    <th class="sidebar-cart__header"><?php wc_cart_totals_coupon_label($coupon); ?></th>
+                    <td class="sidebar-cart__data" data-title="<?php echo esc_attr(wc_cart_totals_coupon_label($coupon, false)); ?>">
+                        <span class="sidebar-cart__amount sidebar-cart__amount--discount"><?php wc_cart_totals_coupon_html($coupon); ?></span>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+
+            <?php if (WC()->cart->needs_shipping() && WC()->cart->show_shipping()) : ?>
+                <tr class="sidebar-cart__row sidebar-cart__row--delivery">
+                    <td class="sidebar-cart__data" colspan="2">
+                        <div class="sidebar-cart__delivery">
+                            <h3 class="sidebar-cart__delivery-title"><?php esc_html_e('Shipping method', 'woocommerce'); ?></h3>
+                            <?php woocommerce_shipping_calculator(); ?>
+                        </div>
+                    </td>
+                </tr>
+            <?php endif; ?>
+
+            <?php foreach (WC()->cart->get_fees() as $fee) : ?>
+                <tr class="sidebar-cart__row fee">
+                    <th class="sidebar-cart__header"><?php echo esc_html($fee->name); ?></th>
+                    <td class="sidebar-cart__data" data-title="<?php echo esc_attr($fee->name); ?>">
+                        <span class="sidebar-cart__amount"><?php wc_cart_totals_fee_html($fee); ?></span>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+
+            <?php if (wc_tax_enabled() && !WC()->cart->display_prices_including_tax()) : ?>
+                <?php if ('itemized' === get_option('woocommerce_tax_total_display')) : ?>
+                    <?php foreach (WC()->cart->get_tax_totals() as $code => $tax) : ?>
+                        <tr class="sidebar-cart__row tax-rate tax-rate-<?php echo esc_attr(sanitize_title($code)); ?>">
+                            <th class="sidebar-cart__header"><?php echo esc_html($tax->label); ?></th>
+                            <td class="sidebar-cart__data" data-title="<?php echo esc_attr($tax->label); ?>">
+                                <span class="sidebar-cart__amount"><?php echo wp_kses_post($tax->formatted_amount); ?></span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr class="sidebar-cart__row tax-total">
+                        <th class="sidebar-cart__header"><?php echo esc_html(WC()->countries->tax_or_vat()); ?></th>
+                        <td class="sidebar-cart__data" data-title="<?php echo esc_attr(WC()->countries->tax_or_vat()); ?>">
+                            <span class="sidebar-cart__amount"><?php wc_cart_totals_taxes_total_html(); ?></span>
+                        </td>
+                    </tr>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <tr class="sidebar-cart__row sidebar-cart__row--total order-total">
+                <th class="sidebar-cart__header"><?php esc_html_e('Total', 'woocommerce'); ?></th>
+                <td class="sidebar-cart__data" data-title="<?php esc_attr_e('Total', 'woocommerce'); ?>">
+                    <strong class="sidebar-cart__total">
+                        <span class="sidebar-cart__total-amount"><?php wc_cart_totals_order_total_html(); ?></span>
+                    </strong>
+                </td>
+            </tr>
+        </table>
+
+        <div class="sidebar-cart__checkout wc-proceed-to-checkout">
+            <?php do_action('woocommerce_proceed_to_checkout'); ?>
+        </div>
+        <?php
+    }
+}
+add_action('woocommerce_cart_collaterals', 'custom_woocommerce_cart_totals', 10);
+
+// Кастомная кнопка оформления заказа
+function custom_proceed_to_checkout_button() {
+    echo '<a href="' . esc_url(wc_get_checkout_url()) . '" class="sidebar-cart__checkout-button button button--black checkout-button button alt wc-forward">' . esc_html__('Proceed to checkout', 'woocommerce') . '</a>';
+}
+add_action('woocommerce_proceed_to_checkout', 'custom_proceed_to_checkout_button', 20);
+
+
+
+
+//====================== FAVORITES ============================================================================================
+// Функция проверки избранного
+if (!function_exists('is_user_favorite')) {
+    function is_user_favorite($product_id) {
+        if (!is_user_logged_in()) {
+            return false;
+        }
+        
+        $user_id = get_current_user_id();
+        $favorites = get_user_meta($user_id, 'user_favorites', true);
+        
+        if (empty($favorites) || !is_array($favorites)) {
+            return false;
+        }
+        
+        return in_array($product_id, $favorites);
+    }
+}
+
+// AJAX добавление/удаление из избранного
+// AJAX добавление/удаление из избранного
+add_action('wp_ajax_toggle_favorite', 'ajax_toggle_favorite');
+add_action('wp_ajax_nopriv_toggle_favorite', 'ajax_require_login_favorite');
+
+function ajax_toggle_favorite() {
+    // Проверка nonce для безопасности
+    if (!wp_verify_nonce($_POST['nonce'], 'favorites_nonce')) {
+        wp_send_json_error('Ошибка безопасности');
+        return;
+    }
+
+    // Обязательная проверка авторизации
+    if (!is_user_logged_in()) {
+        wp_send_json_error('Требуется авторизация');
+        return;
+    }
+
+    $product_id = intval($_POST['product_id']);
+    if (!$product_id) {
+        wp_send_json_error('Неверный ID товара');
+        return;
+    }
+
+    $user_id = get_current_user_id();
+    $favorites = get_user_meta($user_id, 'user_favorites', true);
+    
+    if (empty($favorites) || !is_array($favorites)) {
+        $favorites = array();
+    }
+
+    $favorite_index = array_search($product_id, $favorites);
+    
+    if ($favorite_index !== false) {
+        // Удаляем из избранного
+        unset($favorites[$favorite_index]);
+        $is_favorite = false;
+        $message = 'Товар удален из избранного';
+    } else {
+        // Добавляем в избранное
+        $favorites[] = $product_id;
+        $is_favorite = true;
+        $message = 'Товар добавлен в избранное';
+    }
+
+    // Сохраняем обновленный список
+    update_user_meta($user_id, 'user_favorites', $favorites);
+    
+    wp_send_json_success(array(
+        'is_favorite' => $is_favorite,
+        'favorites_count' => count($favorites),
+        'message' => $message
+    ));
+}
+
+function ajax_require_login_favorite() {
+    wp_send_json_error('Для добавления в избранное необходимо войти в систему');
+}
+
+
+
+
+//====================== FILTER ============================================================================================
+// Обработка пользовательских фильтров
+function custom_product_filter_query($query) {
+    if (!is_admin() && $query->is_main_query() && (is_shop() || is_product_category() || is_product_tag())) {
+        
+        $tax_query = array();
+        
+        // Фильтр по категориям
+        if (!empty($_GET['category'])) {
+            $tax_query[] = array(
+                'taxonomy' => 'product_cat',
+                'field'    => 'slug',
+                'terms'    => (array)$_GET['category'],
+                'operator' => 'IN'
+            );
+        }
+        
+        // Фильтр по брендам
+        if (!empty($_GET['brand'])) {
+            $tax_query[] = array(
+                'taxonomy' => 'product_brand',
+                'field'    => 'slug',
+                'terms'    => (array)$_GET['brand'],
+                'operator' => 'IN'
+            );
+        }
+        
+        // Фильтр по размерам
+        if (!empty($_GET['size'])) {
+            $tax_query[] = array(
+                'taxonomy' => 'pa_size',
+                'field'    => 'slug',
+                'terms'    => (array)$_GET['size'],
+                'operator' => 'IN'
+            );
+        }
+        
+        if (!empty($tax_query)) {
+            $tax_query['relation'] = 'AND';
+            $query->set('tax_query', $tax_query);
+        }
+    }
+}
+add_action('pre_get_posts', 'custom_product_filter_query');
+
+// Создание страницы избранного при активации темы
+function create_favorites_page() {
+    $favorites_page = get_page_by_path('favourites');
+    
+    if (!$favorites_page) {
+        $page_data = array(
+            'post_title'    => 'Избранное',
+            'post_name'     => 'favourites',
+            'post_content'  => '',
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_author'   => 1,
+        );
+        
+        $page_id = wp_insert_post($page_data);
+        
+        if ($page_id && !is_wp_error($page_id)) {
+            update_post_meta($page_id, '_wp_page_template', 'page-favourites.php');
+        }
+    }
+}
+add_action('after_switch_theme', 'create_favorites_page');
+
+// Обработка фильтров для страницы акций
+function sales_page_filter_query($query) {
+    if (!is_admin() && is_page_template('page-sales.php') && $query->is_main_query()) {
+        
+        $meta_query = array(
+            'relation' => 'OR',
+            array(
+                'key' => '_sale_price',
+                'value' => 0,
+                'compare' => '>',
+                'type' => 'NUMERIC'
+            )
+        );
+        
+        $tax_query = array();
+        
+        // Фильтр по категориям
+        if (!empty($_GET['category'])) {
+            $tax_query[] = array(
+                'taxonomy' => 'product_cat',
+                'field'    => 'slug',
+                'terms'    => (array)$_GET['category'],
+                'operator' => 'IN'
+            );
+        }
+        
+        // Фильтр по брендам
+        if (!empty($_GET['brand'])) {
+            $tax_query[] = array(
+                'taxonomy' => 'product_brand',
+                'field'    => 'slug',
+                'terms'    => (array)$_GET['brand'],
+                'operator' => 'IN'
+            );
+        }
+        
+        // Фильтр по размерам
+        if (!empty($_GET['size'])) {
+            $tax_query[] = array(
+                'taxonomy' => 'pa_size',
+                'field'    => 'slug',
+                'terms'    => (array)$_GET['size'],
+                'operator' => 'IN'
+            );
+        }
+        
+        if (!empty($tax_query)) {
+            $tax_query['relation'] = 'AND';
+            $query->set('tax_query', $tax_query);
+        }
+        
+        $query->set('meta_query', $meta_query);
+    }
+}
+add_action('pre_get_posts', 'sales_page_filter_query');
+// Загрузка скриптов для вариативных товаров
+add_action('wp_enqueue_scripts', 'load_variation_scripts');
+function load_variation_scripts() {
+    if (is_product()) {
+        wp_enqueue_script('wc-add-to-cart-variation');
+    }
+}
+
+
+
+//====================== AJAX SHOP ============================================================================================
+// AJAX фильтрация товаров
+add_action('wp_ajax_filter_products', 'ajax_filter_products');
+add_action('wp_ajax_nopriv_filter_products', 'ajax_filter_products');
+
+function ajax_filter_products() {
+    // Проверка nonce для безопасности
+    check_ajax_referer('filter_nonce', 'nonce');
+    
+    $args = array(
+        'post_type' => 'product',
+        'posts_per_page' => wc_get_default_products_per_row() * wc_get_default_product_rows_per_page(),
+        'post_status' => 'publish'
+    );
+    
+    // Категории
+    if (!empty($_POST['category'])) {
+        $args['tax_query'][] = array(
+            'taxonomy' => 'product_cat',
+            'field' => 'slug',
+            'terms' => $_POST['category']
+        );
+    }
+    
+    // Бренды
+    if (!empty($_POST['brand'])) {
+        $args['tax_query'][] = array(
+            'taxonomy' => 'product_brand',
+            'field' => 'slug',
+            'terms' => $_POST['brand']
+        );
+    }
+    
+    // Размеры
+    if (!empty($_POST['size'])) {
+        $args['tax_query'][] = array(
+            'taxonomy' => 'pa_size',
+            'field' => 'slug',
+            'terms' => $_POST['size']
+        );
+    }
+    
+    // Сортировка
+    if (!empty($_POST['orderby'])) {
+        switch ($_POST['orderby']) {
+            case 'price':
+                $args['orderby'] = 'meta_value_num';
+                $args['meta_key'] = '_price';
+                $args['order'] = 'ASC';
+                break;
+            case 'price-desc':
+                $args['orderby'] = 'meta_value_num';
+                $args['meta_key'] = '_price';
+                $args['order'] = 'DESC';
+                break;
+            case 'date':
+                $args['orderby'] = 'date';
+                $args['order'] = 'DESC';
+                break;
+            case 'popularity':
+                $args['orderby'] = 'meta_value_num';
+                $args['meta_key'] = 'total_sales';
+                $args['order'] = 'DESC';
+                break;
+            default:
+                $args['orderby'] = 'menu_order title';
+                $args['order'] = 'ASC';
+        }
+    }
+    
+    // Пагинация
+    if (!empty($_POST['page'])) {
+        $args['paged'] = $_POST['page'];
+    }
+    
+    $products = new WP_Query($args);
+    
+    ob_start();
+    
+    if ($products->have_posts()) {
+        // Устанавливаем глобальные переменные для корректной работы WooCommerce
+        wc_set_loop_prop('total', $products->found_posts);
+        wc_set_loop_prop('total_pages', $products->max_num_pages);
+        wc_set_loop_prop('current_page', $args['paged'] ?? 1);
+        wc_set_loop_prop('per_page', $args['posts_per_page']);
+        wc_set_loop_prop('is_filtered', true);
+        
+        while ($products->have_posts()) {
+            $products->the_post();
+            
+            // Используем стандартный template WooCommerce
+            wc_get_template_part('content', 'product');
+        }
+        
+        /**
+         * Hook: woocommerce_after_shop_loop.
+         */
+        echo '<div id="products-pagination">';
+        woocommerce_pagination();
+        echo '</div>';
+        
+        wp_reset_postdata();
+    } else {
+        /**
+         * Hook: woocommerce_no_products_found.
+         */
+        do_action('woocommerce_no_products_found');
+    }
+    
+    $output = ob_get_clean();
+    
+    wp_send_json_success(array(
+        'html' => $output,
+        'found_posts' => $products->found_posts,
+        'max_num_pages' => $products->max_num_pages
+    ));
+}
+
+// Кастомные хуки для кастомизации вывода
+add_action('woocommerce_before_shop_loop_item', 'custom_before_shop_loop_item', 5);
+function custom_before_shop_loop_item() {
+    // Открываем кастомную ссылку вместо стандартной
+    remove_action('woocommerce_before_shop_loop_item', 'woocommerce_template_loop_product_link_open', 10);
+    echo '<a href="' . get_the_permalink() . '" class="woocommerce-LoopProduct-link woocommerce-loop-product__link">';
+}
+
+add_action('woocommerce_after_shop_loop_item', 'custom_after_shop_loop_item', 5);
+function custom_after_shop_loop_item() {
+    // Закрываем кастомную ссылку вместо стандартной
+    remove_action('woocommerce_after_shop_loop_item', 'woocommerce_template_loop_product_link_close', 5);
+    echo '</a>';
+}
+
+// Кастомный вывод цены
+add_filter('woocommerce_get_price_html', 'custom_price_html', 100, 2);
+function custom_price_html($price, $product) {
+    if (is_shop() || is_product_category() || is_product_tag()) {
+        if ($product->is_on_sale()) {
+            $regular_price = wc_get_price_to_display($product, array('price' => $product->get_regular_price()));
+            $sale_price = wc_get_price_to_display($product, array('price' => $product->get_sale_price()));
+            
+            return '<div class="card__price card__new-price">' . wc_price($sale_price) . '</div>' .
+                   '<div class="card__price card__old-price">' . wc_price($regular_price) . '</div>';
+        } else {
+            return '<div class="card__price card__new-price">' . wc_price($product->get_price()) . '</div>';
+        }
+    }
+    return $price;
+}
+
+// Кастомный вывод заголовка
+add_action('woocommerce_shop_loop_item_title', 'custom_product_title', 10);
+function custom_product_title() {
+    echo '<a href="' . get_the_permalink() . '" class="card__title">' . get_the_title() . '</a>';
+}
+
+// Кастомный вывод изображения
+add_action('woocommerce_before_shop_loop_item_title', 'custom_product_thumbnail', 10);
+function custom_product_thumbnail() {
+    global $product;
+    echo $product->get_image('full');
+}
+
+// Кастомная кнопка "В корзину"
+add_filter('woocommerce_loop_add_to_cart_link', 'custom_add_to_cart_button', 10, 3);
+function custom_add_to_cart_button($button, $product, $args) {
+    if ($product->is_in_stock()) {
+        return '<button class="card__button button-black add_to_cart_button" 
+                data-product_id="' . $product->get_id() . '" 
+                data-product_sku="' . $product->get_sku() . '">В корзину</button>';
+    }
+    return $button;
+}
+
+
+
+//====================== NOTIFICATION — ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ ОШИБОК ======================
+add_action('init', 'fls_start_session_if_needed');
+function fls_start_session_if_needed() {
+    // Сессия нужна только на фронтенде и только если ещё не запущена
+    if (!is_admin() && !session_id()) {
+        session_start();
+    }
+}
+
+// Добавляем уведомление
+function fls_add_notification($message, $type = 'success') {
+    if (!session_id()) {
+        session_start();
+    }
+    
+    $_SESSION['fls_notifications'][] = [
+        'message' => $message,
+        'type'    => $type
+    ];
+}
+
+// Показываем уведомления (уже безопасно, потому что сессия запущена на init)
+function fls_display_stored_notifications() {
+    if (!empty($_SESSION['fls_notifications'])) {
+        foreach ($_SESSION['fls_notifications'] as $notification) {
+            $message = esc_js($notification['message']);
+            $type    = esc_js($notification['type']);
+            echo "<script>window.flsNotifications && window.flsNotifications.{$type}('{$message}');</script>";
+        }
+        // Очищаем после вывода
+        unset($_SESSION['fls_notifications']);
+    }
+}
+add_action('wp_footer', 'fls_display_stored_notifications');
+
+
+
+
+//====================== AJAX CART ============================================================================================
+// Добавь в functions.php
+// AJAX обработчик для получения вариаций
+add_action('wp_ajax_woocommerce_get_variation', 'get_variation_callback');
+add_action('wp_ajax_nopriv_woocommerce_get_variation', 'get_variation_callback');
+
+
+function get_variation_callback() {
+    ob_start();
+
+    if (!isset($_POST['product_id']) || !isset($_POST['form_data'])) {
+        wp_die();
+    }
+
+    $product_id = absint($_POST['product_id']);
+    $form_data = $_POST['form_data'];
+    
+    parse_str($form_data, $posted_attributes);
+    
+    // Устанавливаем атрибуты для получения вариации
+    $_POST = $posted_attributes;
+    
+    $product = wc_get_product($product_id);
+    
+    if (!$product) {
+        wp_send_json_error();
+    }
+
+    $variation_id = $product->get_matching_variation($posted_attributes);
+    $variation = $variation_id ? wc_get_product($variation_id) : false;
+
+    if ($variation && $variation->exists()) {
+        wp_send_json_success(array(
+            'variation_id' => $variation_id,
+            'display_price' => $variation->get_price(),
+            'display_regular_price' => $variation->get_regular_price(),
+            'price_html' => $variation->get_price_html(),
+            'is_purchasable' => $variation->is_purchasable(),
+            'is_in_stock' => $variation->is_in_stock(),
+            'variation_description' => $variation->get_description(),
+        ));
+    } else {
+        wp_send_json_error();
+    }
+}
+
+
+
+
+
+//====================== PROFILE ============================================================================================
+// Обработка AJAX регистрации
+// AJAX обработчик регистрации
+add_action('wp_ajax_nopriv_custom_registration', 'custom_registration_handler');
+add_action('wp_ajax_custom_registration', 'custom_registration_handler');
+
+function custom_registration_handler() {
+    // Проверка nonce
+    if (!wp_verify_nonce($_POST['registration_nonce'], 'custom_registration_nonce')) {
+        wp_send_json_error(array('message' => 'Ошибка безопасности'));
+        return;
+    }
+    
+    $username = sanitize_user($_POST['username']);
+    $email = sanitize_email($_POST['email']);
+    $password = $_POST['password'];
+    $password2 = $_POST['password2'];
+    $redirect_to = sanitize_text_field($_POST['redirect_to']);
+    
+    // Валидация
+    if (empty($username) || empty($email) || empty($password)) {
+        wp_send_json_error(array('message' => 'Пожалуйста, заполните все обязательные поля'));
+        return;
+    }
+    
+    if (strlen($username) < 3) {
+        wp_send_json_error(array('message' => 'Имя пользователя должно содержать не менее 3 символов'));
+        return;
+    }
+    
+    if ($password !== $password2) {
+        wp_send_json_error(array('message' => 'Введенные пароли не совпадают'));
+        return;
+    }
+    
+    if (!is_email($email)) {
+        wp_send_json_error(array('message' => 'Пожалуйста, введите корректный email адрес'));
+        return;
+    }
+    
+    if (email_exists($email)) {
+        wp_send_json_error(array('message' => 'Этот email адрес уже зарегистрирован в системе'));
+        return;
+    }
+
+    if (empty($username) || empty($email) || empty($password)) {
+        wp_send_json_error(array('message' => 'Заполните все поля'));
+        return;
+    }
+    
+    if (strlen($username) < 3) {
+        wp_send_json_error(array('message' => 'Имя пользователя должно быть не менее 3 символов'));
+        return;
+    }
+    
+    if ($password !== $password2) {
+        wp_send_json_error(array('message' => 'Пароли не совпадают'));
+        return;
+    }
+    
+    if (!is_email($email)) {
+        wp_send_json_error(array('message' => 'Неверный формат email'));
+        return;
+    }
+    
+    if (email_exists($email)) {
+        wp_send_json_error(array('message' => 'Email уже зарегистрирован'));
+        return;
+    }
+    
+    // Если имя пользователя занято, предлагаем варианты
+    $original_username = $username;
+    $counter = 1;
+    
+    while (username_exists($username)) {
+        $username = $original_username . $counter;
+        $counter++;
+        
+        if ($counter > 10) {
+            $username = 'user_' . uniqid();
+            break;
+        }
+    }
+    
+    // Создание пользователя
+    $user_id = wp_create_user($username, $password, $email);
+    
+    if (is_wp_error($user_id)) {
+        wp_send_json_error(array('message' => 'Ошибка регистрации: ' . $user_id->get_error_message()));
+        return;
+    }
+    
+    // Устанавливаем роль "customer" для WooCommerce
+    $user = new WP_User($user_id);
+    $user->set_role('customer');
+    
+    // Сохраняем оригинальное имя для отображения
+    if ($username !== $original_username) {
+        update_user_meta($user_id, 'original_username', $original_username);
+    }
+    
+    // Автоматический логин после регистрации
+    wp_set_current_user($user_id);
+    wp_set_auth_cookie($user_id);
+    
+    // Успешный ответ
+    $message = 'Регистрация прошла успешно! Добро пожаловать!';
+    if ($username !== $original_username) {
+        $message = 'Регистрация прошла успешно! Ваше имя пользователя: ' . $username;
+    }
+    
+    wp_send_json_success(array(
+        'message' => $message,
+        'redirect' => $redirect_to ?: home_url(),
+        'username' => $username
+    ));
+}
+
+// Проверка доступности имени пользователя
+add_action('wp_ajax_nopriv_check_username', 'check_username_availability');
+add_action('wp_ajax_check_username', 'check_username_availability');
+
+function check_username_availability() {
+    $username = sanitize_user($_POST['username']);
+    
+    if (username_exists($username)) {
+        wp_send_json_success(array('available' => false));
+    } else {
+        wp_send_json_success(array('available' => true));
+    }
+}
+
+// Запрет доступа в админку для всех, кроме администраторов
+add_action('admin_init', 'restrict_admin_access');
+function restrict_admin_access() {
+    if (defined('DOING_AJAX') && DOING_AJAX) {
+        return;
+    }
+    
+    if (!current_user_can('manage_options') && !current_user_can('edit_posts')) {
+        wp_redirect(home_url());
+        exit;
+    }
+}
+
+// Скрываем админбар для всех, кроме администраторов
+add_action('after_setup_theme', 'remove_admin_bar');
+function remove_admin_bar() {
+    if (!current_user_can('manage_options') && !is_admin()) {
+        show_admin_bar(false);
+    }
+}
+
+// Перенаправление с wp-login.php на кастомную страницу входа
+add_action('init', 'redirect_login_page');
+function redirect_login_page() {
+    $login_page = home_url('/login/');
+    $page_viewed = basename($_SERVER['REQUEST_URI']);
+    
+    if ($page_viewed == "wp-login.php" && $_SERVER['REQUEST_METHOD'] == 'GET') {
+        wp_redirect($login_page);
+        exit;
+    }
+}
+
+// Обработка ошибок входа
+add_action('wp_login_failed', 'login_failed');
+function login_failed() {
+    $login_page = home_url('/login/');
+    wp_redirect($login_page . '?login=failed');
+    exit;
+}
+
+// Выход из системы
+add_action('wp_logout', 'logout_redirect');
+function logout_redirect() {
+    wp_redirect(home_url('/login/'));
+    exit;
+}
+
+
+
+
+//====================== RESET PASSWORD ============================================================================================
+// AJAX обработчик запроса сброса пароля
+add_action('wp_ajax_nopriv_password_reset_request', 'password_reset_request_handler');
+add_action('wp_ajax_password_reset_request', 'password_reset_request_handler');
+
+function password_reset_request_handler() {
+    // Проверка nonce
+    if (!wp_verify_nonce($_POST['password_reset_nonce'], 'password_reset_nonce')) {
+        wp_send_json_error(array('message' => 'Ошибка безопасности'));
+        return;
+    }
+    
+    $user_email = sanitize_email($_POST['user_email']);
+    
+    // Валидация
+    if (empty($user_email)) {
+        wp_send_json_error(array('message' => 'Пожалуйста, введите email адрес'));
+        return;
+    }
+    
+    if (!is_email($user_email)) {
+        wp_send_json_error(array('message' => 'Пожалуйста, введите корректный email адрес'));
+        return;
+    }
+    
+    // Проверяем существует ли пользователь
+    $user = get_user_by('email', $user_email);
+    if (!$user) {
+        wp_send_json_error(array('message' => 'Пользователь с таким email не найден'));
+        return;
+    }
+    
+    // Отправляем письмо сброса пароля через WordPress
+    $result = retrieve_password($user->user_login);
+    
+    if (is_wp_error($result)) {
+        $error_message = $result->get_error_message();
+        wp_send_json_error(array('message' => $error_message ?: 'Не удалось отправить письмо сброса пароля'));
+        return;
+    }
+    
+    wp_send_json_success(array(
+        'message' => 'Ссылка для сброса пароля отправлена на ваш email. Проверьте почту.'
+    ));
+}
+
+// Обработчик сброса пароля (для страницы сброса от WordPress)
+add_action('wp_ajax_nopriv_password_reset', 'password_reset_handler');
+add_action('wp_ajax_password_reset', 'password_reset_handler');
+
+function password_reset_handler() {
+    // Проверка nonce
+    if (!wp_verify_nonce($_POST['password_reset_nonce'], 'password_reset_nonce')) {
+        wp_send_json_error(array('message' => 'Ошибка безопасности'));
+        return;
+    }
+    
+    $rp_key = sanitize_text_field($_POST['rp_key']);
+    $rp_login = sanitize_text_field($_POST['rp_login']);
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    // Валидация
+    if (empty($new_password) || empty($confirm_password)) {
+        wp_send_json_error(array('message' => 'Заполните все поля пароля'));
+        return;
+    }
+    
+    if ($new_password !== $confirm_password) {
+        wp_send_json_error(array('message' => 'Пароли не совпадают'));
+        return;
+    }
+    
+    if (strlen($new_password) < 6) {
+        wp_send_json_error(array('message' => 'Пароль должен содержать не менее 6 символов'));
+        return;
+    }
+    
+    // Проверяем ключ сброса
+    $user = check_password_reset_key($rp_key, $rp_login);
+    
+    if (is_wp_error($user)) {
+        wp_send_json_error(array('message' => 'Недействительная или устаревшая ссылка сброса пароля'));
+        return;
+    }
+    
+    // Сбрасываем пароль
+    reset_password($user, $new_password);
+    
+    wp_send_json_success(array(
+        'message' => 'Пароль успешно изменен! Теперь вы можете войти с новым паролем.',
+        'redirect' => get_permalink(get_page_by_path('login'))
+    ));
+}
+
+
+
+//====================== AJAX PRODUCT ============================================================================================
+
+// AJAX добавление в корзину для простых товаров
+add_action('wp_ajax_woocommerce_ajax_add_to_cart', 'woocommerce_ajax_add_to_cart');
+add_action('wp_ajax_nopriv_woocommerce_ajax_add_to_cart', 'woocommerce_ajax_add_to_cart');
+function woocommerce_ajax_add_to_cart() {
+    // Проверка nonce
+    if (!isset($_POST['woocommerce-add-to-cart-nonce']) || !wp_verify_nonce($_POST['woocommerce-add-to-cart-nonce'], 'woocommerce-add-to-cart')) {
+        wp_send_json_error(array('message' => 'Ошибка безопасности'));
+        return;
+    }
+
+    $product_id = apply_filters('woocommerce_add_to_cart_product_id', absint($_POST['add-to-cart']));
+    $quantity = empty($_POST['quantity']) ? 1 : wc_stock_amount($_POST['quantity']);
+    $passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity);
+    $product_status = get_post_status($product_id);
+
+    if ($passed_validation && false !== WC()->cart->add_to_cart($product_id, $quantity) && 'publish' === $product_status) {
+        do_action('woocommerce_ajax_added_to_cart', $product_id);
+
+        wp_send_json_success(array(
+            'message' => 'Товар добавлен в корзину'
+        ));
+    } else {
+        wp_send_json_error(array(
+            'message' => 'Не удалось добавить товар в корзину'
+        ));
+    }
+}
+
+
+
+//====================== SIDEBAR PRODUCR ============================================================================================
+
+// Кастомная боковая панель корзины
+// add_action('woocommerce_after_cart_table', 'custom_cart_sidebar');
+function custom_cart_sidebar() {
+    if (!is_cart()) return; // Убираем вывод на чекауте
+    ?>
+    <div class="cart__sidebar sidebar-cart">
+        <div class="sidebar-cart__content">
+            <table class="sidebar-cart__table">
+                <tbody>
+                    <!-- Сумма -->
+                    <tr class="sidebar-cart__row">
+                        <th class="sidebar-cart__header">Сумма</th>
+                        <td class="sidebar-cart__data">
+                            <span class="sidebar-cart__amount"><?php echo WC()->cart->get_subtotal(); ?> ₽</span>
+                        </td>
+                    </tr>
+
+                    <!-- Скидка -->
+                    <?php 
+                    $discount_total = WC()->cart->get_cart_discount_total();
+                    if ($discount_total > 0) : ?>
+                    <tr class="sidebar-cart__row sidebar-cart__row--discount">
+                        <th class="sidebar-cart__header">Скидка</th>
+                        <td class="sidebar-cart__data">
+                            <span class="sidebar-cart__amount sidebar-cart__amount--discount">–<?php echo wc_price($discount_total); ?></span>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
+
+                    <!-- Доставка -->
+                    <?php if (WC()->cart->needs_shipping() && WC()->cart->show_shipping()) : ?>
+                    <tr class="sidebar-cart__row sidebar-cart__row--delivery">
+                        <td class="sidebar-cart__data" colspan="2">
+                            <div class="sidebar-cart__delivery">
+                                <h3 class="sidebar-cart__delivery-title">Способ доставки</h3>
+                                <div class="sidebar-cart__shipping-methods">
+                                    <?php
+                                    // Получаем доступные методы доставки
+                                    $packages = WC()->shipping()->get_packages();
+                                    $chosen_shipping_methods = WC()->session->get('chosen_shipping_methods');
+                                    
+                                    if ($packages) {
+                                        $first_package = $packages[0];
+                                        $available_methods = $first_package['rates'];
+                                        
+                                        foreach ($available_methods as $method) {
+                                            $checked = checked($chosen_shipping_methods[0], $method->id, false);
+                                            $method_price = $method->cost > 0 ? wc_price($method->cost) : 'Бесплатно';
+                                            ?>
+                                            <label class="sidebar-cart__shipping-method">
+                                                <input type="radio" name="shipping_method" 
+                                                       value="<?php echo esc_attr($method->id); ?>" 
+                                                       class="sidebar-cart__shipping-radio" <?php echo $checked; ?>>
+                                                <span class="sidebar-cart__shipping-label">
+                                                    <span class="sidebar-cart__shipping-name"><?php echo esc_html($method->label); ?></span>
+                                                    <span class="sidebar-cart__shipping-price"><?php echo $method_price; ?></span>
+                                                </span>
+                                            </label>
+                                            <?php
+                                        }
+                                    }
+                                    ?>
+                                </div>
+
+                                <div class="sidebar-cart__destination">
+                                    <?php
+                                    // Получаем выбранный город/регион
+                                    $customer_city = WC()->customer->get_shipping_city();
+                                    $customer_state = WC()->customer->get_shipping_state();
+                                    
+                                    if ($customer_city || $customer_state) {
+                                        $destination = '';
+                                        if ($customer_city) $destination .= $customer_city;
+                                        if ($customer_state) $destination .= ($customer_city ? ', ' : '') . $customer_state;
+                                        ?>
+                                        <p class="sidebar-cart__destination-text">
+                                            Доставка до пункта выдачи: <?php echo esc_html($destination); ?>
+                                        </p>
+                                        <button type="button" class="sidebar-cart__change-address" onclick="window.location.href='<?php echo wc_get_checkout_url(); ?>'">
+                                            Изменить адрес
+                                        </button>
+                                        <?php
+                                    } else {
+                                        ?>
+                                        <p class="sidebar-cart__destination-text">
+                                            Укажите адрес доставки
+                                        </p>
+                                        <button type="button" class="sidebar-cart__change-address" onclick="window.location.href='<?php echo wc_get_checkout_url(); ?>'">
+                                            Указать адрес
+                                        </button>
+                                        <?php
+                                    }
+                                    ?>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
+
+                    <!-- Итого -->
+                    <tr class="sidebar-cart__row sidebar-cart__row--total">
+                        <th class="sidebar-cart__header">Итого</th>
+                        <td class="sidebar-cart__data">
+                            <strong class="sidebar-cart__total">
+                                <span class="sidebar-cart__total-amount"><?php wc_cart_totals_order_total_html(); ?></span>
+                            </strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="sidebar-cart__checkout">
+                <a href="<?php echo esc_url(wc_get_checkout_url()); ?>" class="sidebar-cart__checkout-button button button--black">
+                    Оформить заказ
+                </a>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
+// AJAX обновление методов доставки
+add_action('wp_ajax_update_shipping_method', 'ajax_update_shipping_method');
+add_action('wp_ajax_nopriv_update_shipping_method', 'ajax_update_shipping_method');
+function ajax_update_shipping_method() {
+    if (!wp_verify_nonce($_POST['nonce'], 'woocommerce-cart')) {
+        wp_send_json_error('Ошибка безопасности');
+    }
+
+    $chosen_shipping_methods = WC()->session->get('chosen_shipping_methods');
+    $new_shipping_method = isset($_POST['shipping_method']) ? $_POST['shipping_method'] : '';
+    
+    if ($new_shipping_method) {
+        $chosen_shipping_methods[0] = $new_shipping_method;
+        WC()->session->set('chosen_shipping_methods', $chosen_shipping_methods);
+        
+        // Пересчитываем корзину
+        WC()->cart->calculate_totals();
+        
+        wp_send_json_success(array(
+            'subtotal' => WC()->cart->get_subtotal(),
+            'shipping_total' => WC()->cart->get_shipping_total(),
+            'total' => WC()->cart->get_total()
+        ));
+    }
+    
+    wp_send_json_error('Не удалось обновить способ доставки');
+}
+
+// JavaScript для обновления доставки
+add_action('wp_footer', 'cart_sidebar_scripts');
+function cart_sidebar_scripts() {
+    if (is_cart()) {
+        ?>
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            // Обновление способа доставки
+            $('.sidebar-cart__shipping-radio').on('change', function() {
+                var shippingMethod = $(this).val();
+                
+                $.ajax({
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'update_shipping_method',
+                        shipping_method: shippingMethod,
+                        nonce: '<?php echo wp_create_nonce('woocommerce-cart'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Обновляем фрагменты корзины
+                            $(document.body).trigger('wc_fragment_refresh');
+                            
+                            // Показываем уведомление
+                            if (window.flsNotifications) {
+                                window.flsNotifications.success('Способ доставки обновлен');
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Обновление итогов при изменении корзины
+            $(document.body).on('updated_cart_totals', function() {
+                // Корзина уже обновлена через WooCommerce
+                // Можно добавить дополнительную логику если нужно
+            });
+        });
+        </script>
+        <?php
+    }
+}
+
+
+//====================== CHECKOUT ============================================================================================
+
+
+// убираем необязательные полня
+add_filter( 'woocommerce_checkout_fields', 'truemisha_required_fields', 25 ); 
+function truemisha_required_fields( $fields ) {
+ 
+	$fields[ 'billing' ][ 'billing_phone' ][ 'required' ] = true; // обязательно
+
+
+ 
+	// оставляем эти поля
+	// unset( $fields[ 'billing' ][ 'billing_first_name' ] ); // имя
+	// unset( $fields[ 'billing' ][ 'billing_last_name' ] ); // фамилия
+	// unset( $fields[ 'billing' ][ 'billing_phone' ] ); // телефон
+	// unset( $fields[ 'billing' ][ 'billing_email' ] ); // емайл
+ 
+	// удаляем все эти поля
+	unset( $fields[ 'billing' ][ 'billing_company' ] ); // компания
+	unset( $fields[ 'billing' ][ 'billing_country' ] ); // страна
+	unset( $fields[ 'billing' ][ 'billing_address_1' ] ); // адрес 1
+	unset( $fields[ 'billing' ][ 'billing_address_2' ] ); // адрес 2
+	unset( $fields[ 'billing' ][ 'billing_city' ] ); // город
+	unset( $fields[ 'billing' ][ 'billing_state' ] ); // регион, штат
+	unset( $fields[ 'billing' ][ 'billing_postcode' ] ); // почтовый индекс
+	return $fields;
+ 
+}
+
+
+// 3. Убираем ошибку "не выбран способ доставки"
+add_action('woocommerce_checkout_process', 'skip_shipping_validation_if_method_exists');
+function skip_shipping_validation_if_method_exists() {
+    if (WC()->cart->needs_shipping()) {
+        $packages = WC()->shipping()->get_packages();
+        if (!empty($packages[0]['rates'])) {
+            // Есть хотя бы один метод — не ругаемся
+            wc_clear_notices();
+        }
+    }
+}
+
+// Размещаем кастомный блок заказа
+add_action('woocommerce_checkout_order_review', 'custom_checkout_order_review');
+function custom_checkout_order_review() {
+    if (!is_checkout()) return;
+    ?>
+    <div class="checkout__order-review cdek-ai-cart">
+        
+        <!-- Кастомный блок заказа -->
+        <div id="custom-order-review" class="custom-order-review">
+            <?php echo get_custom_order_review_content(); ?>
+        </div>
+    </div>
+    <?php
+}
+
+// Генерация контента кастомного блока заказа
+function get_custom_order_review_content() {
+    ob_start();
+
+    if (WC()->cart->is_empty()) {
+        echo '<p>Корзина пуста</p>';
+        return ob_get_clean();
+    }
+
+    $chosen_shipping = WC()->session->get('chosen_shipping_methods')[0] ?? '';
+    $packages = WC()->shipping()->get_packages();
+    $shipping_label = 'Самовывоз из магазина — бесплатно'; // по умолчанию
+
+    if ($chosen_shipping && !empty($packages)) {
+        foreach ($packages[0]['rates'] as $rate) {
+            if ($rate->id === $chosen_shipping) {
+                $shipping_label = $rate->label;
+                if ($rate->cost > 0) {
+                    $shipping_label .= ' — ' . wc_price($rate->cost + $rate->get_shipping_tax());
+                } else {
+                    $shipping_label .= ' — бесплатно';
+                }
+                break;
+            }
+        }
+    }
+    ?>
+
+    <div class="custom-order-review__content">
+        <!-- Товары -->
+        <div class="custom-order-review__products">
+            <?php foreach (WC()->cart->get_cart() as $cart_item) :
+                $_product = $cart_item['data'];
+                if (!$_product->exists()) continue;
+                ?>
+                <div class="custom-order-review__product">
+                    <div class="custom-order-review__product-name">
+                        <?php echo $_product->get_name(); ?>
+                        <strong class="product-quantity">×&nbsp;<?php echo $cart_item['quantity']; ?></strong>
+                    </div>
+                    <div class="custom-order-review__product-price">
+                        <?php echo wc_price($_product->get_price() * $cart_item['quantity']); ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Итоги -->
+        <div class="custom-order-review__totals">
+            <div class="custom-order-review__row custom-order-review__subtotal">
+                <span class="custom-order-review__label">Подытог:</span>
+                <span class="custom-order-review__value"><?php wc_cart_totals_subtotal_html(); ?></span>
+            </div>
+
+            <?php if (WC()->cart->get_cart_discount_total() > 0) : ?>
+                <div class="custom-order-review__row">
+                    <span class="custom-order-review__label">Скидка:</span>
+                    <span class="custom-order-review__value">–<?php echo wc_price(WC()->cart->get_cart_discount_total()); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <div class="custom-order-review__row custom-order-review__shipping">
+                <span class="custom-order-review__label">Доставка:</span>
+                <span class="custom-order-review__value">
+                    <strong><?php echo $shipping_label; ?></strong>
+                </span>
+            </div>
+
+            <div class="custom-order-review__row custom-order-review__total">
+                <span class="custom-order-review__label">Итого:</span>
+                <span class="custom-order-review__value">
+                    <strong><?php wc_cart_totals_order_total_html(); ?></strong>
+                </span>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+// AJAX-обновление кастомного блока
+add_filter('woocommerce_update_order_review_fragments', 'custom_order_review_fragment');
+function custom_order_review_fragment($fragments) {
+    $fragments['#custom-order-review'] = '<div id="custom-order-review" class="custom-order-review">' . get_custom_order_review_content() . '</div>';
+    return $fragments;
+}
+
+
+
+// Функция для отображения доставки
+function get_custom_shipping_display() {
+    $chosen_method = WC()->session->get('chosen_shipping_methods')[0] ?? '';
+    
+    // Если выбран CDEK
+    if (strpos($chosen_method, 'cdek_ai_simple') !== false) {
+        $cdek_tariff = WC()->session->get('cdek_chosen_tariff');
+        
+        if ($cdek_tariff) {
+            return sprintf(
+                '%s - %s',
+                esc_html($cdek_tariff['tariff_name'] ?? 'CDEK Доставка'),
+                wc_price($cdek_tariff['delivery_sum'] ?? 0)
+            );
+        }
+    }
+    
+    // Для других методов доставки
+    $packages = WC()->shipping->get_packages();
+    if (!empty($packages)) {
+        $first_package = reset($packages);
+        $available_methods = $first_package['rates'];
+        
+        if (isset($available_methods[$chosen_method])) {
+            $method = $available_methods[$chosen_method];
+            $cost = $method->get_cost() > 0 ? wc_price($method->get_cost()) : 'Бесплатно';
+            return $method->get_label() . ' - ' . $cost;
+        }
+    }
+    
+    return 'Не выбрано';
+}
+
+// AJAX для обновления кастомного блока заказа
+add_action('wp_ajax_update_custom_order_review', 'ajax_update_custom_order_review');
+add_action('wp_ajax_nopriv_update_custom_order_review', 'ajax_update_custom_order_review');
+
+function ajax_update_custom_order_review() {
+    // Проверка nonce для безопасности
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'woocommerce-cart')) {
+        wp_send_json_error('Ошибка безопасности');
+    }
+    
+    // Пересчитываем корзину
+    WC()->cart->calculate_totals();
+    
+    // Логируем для отладки
+    if (function_exists('cdek_log')) {
+        cdek_log('AJAX update_custom_order_review called', 'debug');
+        cdek_log('Cart totals - Subtotal: ' . WC()->cart->get_subtotal() . ', Shipping: ' . WC()->cart->get_shipping_total() . ', Total: ' . WC()->cart->get_total(), 'debug');
+    }
+    
+    // Возвращаем обновленный контент
+    wp_send_json_success([
+        'html' => get_custom_order_review_content()
+    ]);
+}
+
+// Обновляем функцию cdek_checkout_scripts()
+add_action('wp_footer', 'cdek_checkout_scripts');
+function cdek_checkout_scripts() {
+    if (is_checkout()) {
+        ?>
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            // Класс для управления обновлением кастомного блока заказа
+            class CustomOrderReviewUpdater {
+                constructor() {
+                    this.init();
+                }
+                
+                init() {
+                    this.bindEvents();
+                    console.log('CustomOrderReviewUpdater initialized');
+                }
+                
+                bindEvents() {
+                    // Обновляем при стандартном обновлении чекаута WooCommerce
+                    $(document.body).on('updated_checkout', (event, data) => {
+                        console.log('updated_checkout triggered', data);
+                        this.updateCustomOrderReview();
+                    });
+                    
+                    // Обновляем при изменении метода доставки
+                    $(document.body).on('updated_shipping_method', () => {
+                        console.log('updated_shipping_method triggered');
+                        this.updateCustomOrderReview();
+                    });
+                    
+                    // Обновляем при изменении купонов
+                    $(document.body).on('applied_coupon removed_coupon', () => {
+                        setTimeout(() => this.updateCustomOrderReview(), 500);
+                    });
+                }
+                
+                updateCustomOrderReview() {
+                    const $reviewBlock = $('#custom-order-review');
+                    
+                    if (!$reviewBlock.length) {
+                        console.error('Custom order review block not found');
+                        return;
+                    }
+                    
+                    console.log('Updating custom order review...');
+                    
+                    $.ajax({
+                        type: 'POST',
+                        url: wc_checkout_params.ajax_url,
+                        data: {
+                            action: 'update_custom_order_review',
+                            nonce: '<?php echo wp_create_nonce("woocommerce-cart"); ?>'
+                        },
+                        beforeSend: () => {
+                            $reviewBlock.addClass('loading');
+                            console.log('AJAX request started');
+                        },
+                        success: (response) => {
+                            if (response.success) {
+                                console.log('AJAX success, updating HTML');
+                                $reviewBlock.html(response.data.html);
+                                
+                                // Обновляем информацию о CDEK если нужно
+                                this.updateCdekInfo();
+                            } else {
+                                console.error('AJAX error:', response.data);
+                            }
+                        },
+                        error: (xhr, status, error) => {
+                            console.error('AJAX request failed:', status, error);
+                        },
+                        complete: () => {
+                            $reviewBlock.removeClass('loading');
+                            console.log('AJAX request completed');
+                        }
+                    });
+                }
+                
+                updateCdekInfo() {
+                    // Проверяем, выбран ли CDEK и обновляем информацию
+                    const chosenMethod = $('#hidden_shipping_method').val();
+                    if (chosenMethod && chosenMethod.includes('cdek_ai_simple')) {
+                        console.log('CDEK method selected, info should be visible');
+                    }
+                }
+            }
+            
+            // Инициализируем обновление
+            new CustomOrderReviewUpdater();
+            
+            // Также обновляем при загрузке страницы
+            setTimeout(() => {
+                $(document.body).trigger('updated_checkout');
+            }, 1000);
+        });
+        </script>
+        <?php
+    }
+}
+
+// Добавляем обновление при выборе ПВЗ CDEK
+add_action('wp_footer', 'cdek_widget_update_trigger');
+function cdek_widget_update_trigger() {
+    if (is_checkout()) {
+        ?>
+        <script>
+        // Перехватываем события выбора в виджете CDEK и принудительно обновляем
+        if (typeof window.CDEKCartController !== 'undefined') {
+            const originalHandleDeliveryChoice = window.CDEKCartController.prototype.handleDeliveryChoice;
+            
+            window.CDEKCartController.prototype.handleDeliveryChoice = function(deliveryMode, tariff, address) {
+                console.log('CDEK delivery choice intercepted');
+                
+                // Вызываем оригинальный метод
+                const result = originalHandleDeliveryChoice.call(this, deliveryMode, tariff, address);
+                
+                // Принудительно обновляем блок заказа
+                setTimeout(() => {
+                    jQuery(document.body).trigger('updated_checkout');
+                }, 1000);
+                
+                return result;
+            };
+        }
+        </script>
+        <?php
+    }
+}
+
+// Добавляем CSS для индикатора загрузки
+add_action('wp_head', 'cdek_checkout_styles');
+function cdek_checkout_styles() {
+    if (is_checkout()) {
+        ?>
+        <style>
+        .custom-order-review.loading {
+            position: relative;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .custom-order-review.loading::after {
+            content: 'Обновление...';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            font-weight: 600;
+        }
+        
+        .custom-order-review__cdek-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f7ff;
+            border-left: 4px solid #007cba;
+            border-radius: 2px;
+        }
+        
+        .cdek-info-row {
+            display: flex;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .cdek-label {
+            font-weight: 600;
+            width: 80px;
+            flex-shrink: 0;
+            color: #555;
+        }
+        
+        .cdek-value {
+            color: #333;
+        }
+        
+        .cdek-info-row.price .cdek-value {
+            font-weight: bold;
+            color: #007cba;
+        }
+        </style>
+        <?php
+    }
+}
+
+// Add custom middle name field
+add_filter( 'woocommerce_checkout_fields', 'add_custom_checkout_fields' );
+function add_custom_checkout_fields( $fields ) {
+    $fields['billing']['billing_middle_name'] = array(
+        'label'     => __( 'Middle name', 'woocommerce' ),
+        'placeholder'   => _x( 'Middle name', 'placeholder', 'woocommerce' ),
+        'required'  => false,
+        'class'     => array('form-row-wide'),
+        'clear'     => true,
+        'priority'  => 25,
+    );
+    return $fields;
+}
+
+// Save custom field
+add_action( 'woocommerce_checkout_update_order_meta', 'save_custom_checkout_field' );
+function save_custom_checkout_field( $order_id ) {
+    if ( ! empty( $_POST['billing_middle_name'] ) ) {
+        update_post_meta( $order_id, '_billing_middle_name', sanitize_text_field( $_POST['billing_middle_name'] ) );
+    }
+}
+
+// Display custom field in admin
+add_action( 'woocommerce_admin_order_data_after_billing_address', 'display_custom_field_admin' );
+function display_custom_field_admin( $order ) {
+    $middle_name = get_post_meta( $order->get_id(), '_billing_middle_name', true );
+    if ( $middle_name ) {
+        echo '<p><strong>' . __( 'Middle name' ) . ':</strong> ' . $middle_name . '</p>';
+    }
+}
+
+// Modify checkout fields order and properties
+add_filter( 'woocommerce_checkout_fields', 'modify_checkout_fields' );
+function modify_checkout_fields( $fields ) {
+    // Make email field wider
+    $fields['billing']['billing_email']['class'] = array('form-row-wide');
+    
+    // Update labels and placeholders
+    $fields['billing']['billing_email']['label'] = __( 'Email', 'woocommerce' );
+    $fields['billing']['billing_first_name']['label'] = __( 'First name', 'woocommerce' );
+    $fields['billing']['billing_last_name']['label'] = __( 'Last name', 'woocommerce' );
+    
+    return $fields;
+}
+
+// Полностью убираем form-row из всех полей WooCommerce
+add_filter('woocommerce_form_field_args', 'remove_form_row_class', 10, 3);
+function remove_form_row_class($args, $key, $value) {
+    // Убираем form-row из классов
+    $args['class'] = array_diff($args['class'], ['form-row']);
+    
+    // Добавляем свои классы
+    $args['class'] = array_merge($args['class'], ['checkout__form-row', 'my-custom-class']);
+    $args['input_class'] = array_merge($args['input_class'], ['checkout__form-input', 'my-input-class']);
+    $args['label_class'] = array_merge($args['label_class'], ['my-label-class']);
+    
+    return $args;
+}
+
+add_filter( 'woocommerce_ship_to_different_address_checked', '__return_false' );
+add_filter( 'woocommerce_billing_fields', 'cdek_ai_make_billing_required_for_shipping' );
+function cdek_ai_make_billing_required_for_shipping( $fields ) {
+    // Убеждаемся, что поля адреса оплаты используются как поля доставки
+    if ( WC()->cart->needs_shipping() ) {
+        // Устанавливаем флаг, что адрес доставки совпадает с адресом оплаты
+        $_POST['ship_to_different_address'] = false;
+    }
+    return $fields;
+}
+
+// Добавляем самовывоз как "сохранённый адрес" в виджет CDEK
+add_filter('cdek_saved_addresses', 'add_pickup_to_saved_addresses');
+function add_pickup_to_saved_addresses($addresses) {
+    $user_id = get_current_user_id();
+    if (!$user_id) return $addresses;
+
+    // Проверяем, есть ли уже наш "виртуальный" самовывоз
+    $has_pickup = false;
+    foreach ($addresses as $addr) {
+        if (isset($addr['is_pickup']) && $addr['is_pickup']) {
+            $has_pickup = true;
+            break;
+        }
+    }
+
+    if (!$has_pickup) {
+        array_unshift($addresses, [
+            'name' => 'Самовывоз из магазина',
+            'address' => 'Москва, ул. Примерная 10 (пн–вс 10:00–21:00)',
+            'city_code' => 44,
+            'delivery_mode' => 'pickup',
+            'tariff_code' => 0,
+            'cost' => 0,
+            'is_pickup' => true,
+            'tariff_name' => 'Самовывоз'
+        ]);
+    }
+
+    return $addresses;
+}
+
+// 2. При выборе "самовывоза" ставим метод local_pickup
+add_action('wp_ajax_cdek_select_saved_address', 'handle_cdek_pickup_selection');
+add_action('wp_ajax_nopriv_cdek_select_saved_address', 'handle_cdek_pickup_selection');
+function handle_cdek_pickup_selection() {
+    if (isset($_POST['is_pickup']) && $_POST['is_pickup'] == 'true') {
+        WC()->session->set('chosen_shipping_methods', ['local_pickup:1']); // твой ID самовывоза
+        wp_send_json_success();
+    }
+}
+
+
+
+// ====================== КОРЗИНА — AJAX ОБНОВЛЕНИЕ СУММЫ 2025 ======================
+add_filter('woocommerce_add_to_cart_fragments', 'goggles_cart_totals_fragment');
+add_filter('woocommerce_update_order_review_fragments', 'goggles_cart_totals_fragment');
+function goggles_cart_totals_fragment($fragments) {
+    ob_start();
+    ?>
+    <div class="cart-totals-fragment">
+        <div class="sidebar-cart-premium">
+            <h3 class="sidebar-cart-premium__title">Ваш заказ</h3>
+            <table class="sidebar-cart-premium__table">
+                <tbody>
+                    <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--subtotal">
+                        <th>Сумма</th>
+                        <td><?php wc_cart_totals_subtotal_html(); ?></td>
+                    </tr>
+                    <?php foreach (WC()->cart->get_coupons() as $code => $coupon) : ?>
+                        <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--discount">
+                            <th><?php wc_coupon_labels($coupon); ?></th>
+                            <td><?php wc_cart_totals_coupon_html($coupon); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (WC()->cart->needs_shipping() && WC()->cart->show_shipping()) : ?>
+                        <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--shipping">
+                            <th>Доставка</th>
+                            <td><?php wc_cart_totals_shipping_html(); ?></td>
+                        </tr>
+                    <?php endif; ?>
+                    <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--total">
+                        <th>Итого</th>
+                        <td><?php wc_cart_totals_order_total_html(); ?></td>
+                    </tr>
+                </tbody>
+            </table>
+            <a href="<?php echo esc_url(wc_get_checkout_url()); ?>" class="sidebar-cart-premium__button">
+                Оформить заказ
+            </a>        
+        </div>
+    </div>
+    <?php
+    $fragments['.cart-totals-fragment'] = ob_get_clean();
+    return $fragments;
+}
+
+
+//====================== LOG ============================================================================================
+
+// Самая ранняя проверка при инициализации WooCommerce
+add_action('woocommerce_init', 'early_shipping_method_check');
+function early_shipping_method_check() {
+    if (!WC()->session || !is_checkout()) return;
+    
+    $chosen_methods = WC()->session->get('chosen_shipping_methods');
+    $cdek_data_exists = WC()->session->get('cdek_pvs_id') || WC()->session->get('cdek_pvs_address');
+    
+    if ($cdek_data_exists && (empty($chosen_methods) || !in_array('cdek_ai_simple', $chosen_methods))) {
+        WC()->session->set('chosen_shipping_methods', ['cdek_ai_simple']);
+        
+        if (function_exists('cdek_log')) {
+            cdek_log('Early check: Fixed shipping method to CDEK', 'debug');
+        }
+    }
+}
+
+add_action('woocommerce_after_checkout_validation', 'validate_cdek_shipping', 10, 2);
+function validate_cdek_shipping($fields, $errors) {
+    $chosen_shipping_method = WC()->session->get('chosen_shipping_methods')[0] ?? '';
+    
+    // Если выбран CDEK, проверяем наличие необходимых данных
+    if (strpos($chosen_shipping_method, 'cdek_ai_simple') !== false) {
+        $cdek_pvs_id = WC()->session->get('cdek_pvs_id');
+        $cdek_pvs_address = WC()->session->get('cdek_pvs_address');
+        
+        if (empty($cdek_pvs_id) || empty($cdek_pvs_address)) {
+            $errors->add('cdek_validation', 'Пожалуйста, выберите пункт выдачи заказа CDEK');
+        }
+    }
+}
+
+add_action('wp_footer', 'debug_cdek_checkout');
+function debug_cdek_checkout() {
+    if (is_checkout() && current_user_can('manage_options')) {
+        $data = [
+            'chosen_methods' => WC()->session->get('chosen_shipping_methods'),
+            'pvs_id' => WC()->session->get('cdek_pvs_id'),
+            'pvs_address' => WC()->session->get('cdek_pvs_address'),
+            'tariff' => WC()->session->get('cdek_chosen_tariff')
+        ];
+        
+        echo '<div style="position: fixed; bottom: 10px; right: 10px; background: white; padding: 10px; border: 1px solid red; z-index: 9999;">';
+        echo '<h4>CDEK Debug:</h4>';
+        echo '<pre>' . print_r($data, true) . '</pre>';
+        echo '</div>';
+    }
+}
+
+
+
+/* ===================================================================
+ CDEK — Получение реального статуса заказа в личном кабинете (2025)
+ =================================================================== */
+function get_cdek_order_status($order_id) {
+    // Пытаемся взять UUID из разных возможных мета-полей (под разные версии плагина CDEK)
+    $cdek_uuid = get_post_meta($order_id, '_cdek_uuid', true)
+        ?: get_post_meta($order_id, '_cdek_order_uuid', true)
+        ?: get_post_meta($order_id, 'cdek_uuid', true);
+
+    if (!$cdek_uuid) {
+        return '<span style="color:#999;font-style:italic;">Отправление ещё не создано в CDEK</span>';
+    }
+
+    // Кэшируем на 10 минут
+    $cache_key = 'cdek_status_' . $cdek_uuid;
+    $cached    = get_transient($cache_key);
+    if ($cached !== false) {
+        return $cached;
+    }
+
+    // Твой токен из настроек плагина CDEK AI Shipping Simple
+    $settings     = get_option('cdek_ai_settings', []);
+    $access_token = $settings['access_token'] ?? '';
+
+    if (empty($access_token)) {
+        return '<span style="color:#c44;">Ошибка: не указан токен CDEK</span>';
+    }
+
+    $ch = curl_init('https://api.cdek.ru/v2/orders/' . $cdek_uuid);
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $access_token
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code !== 200 || !$response) {
+        return '<span style="color:#c44;">Не удалось связаться с CDEK</span>';
+    }
+
+    $data = json_decode($response, true);
+
+    // Если заказ ещё не передан в CDEK
+    if (empty($data['entity']['cdek_number'])) {
+        $status = 'Зарегистрирован, ожидает передачи';
+    } else {
+        $cdek_number = $data['entity']['cdek_number'];
+        $status_obj  = end($data['entity']['statuses']); // последний статус
+        $status_name = $status_obj['name'] ?? 'Неизвестно';
+        $status_date = date('d.m.Y H:i', strtotime($status_obj['date_time'] ?? 'now'));
+
+        $tracking_url = "https://www.cdek.ru/ru/tracking?order_id={$cdek_number}";
+
+        $html = <<<HTML
+        <div style="background:#f8f9fa;padding:16px;border-radius:12px;margin-top:15px;font-size:14px;line-height:1.5;">
+            <strong>🚚 CDEK № {$cdek_number}</strong><br>
+            <span style="color:#191919;">Статус: <strong>{$status_name}</strong> ({$status_date})</span><br>
+            <a href="{$tracking_url}" target="_blank" style="color:#f80f4e;font-weight:600;">
+                Отследить посылку →
+            </a>
+        </div>
+        HTML;
+
+        set_transient($cache_key, $html, 10 * MINUTE_IN_SECONDS);
+        return $html;
+    }
+
+    // Если вдруг нет статусов
+    $html = '<div style="background:#f0f8ff;padding:12px;border-radius:8px;">Заказ в CDEK, статус уточняется...</div>';
+    set_transient($cache_key, $html, 5 * MINUTE_IN_SECONDS);
+    return $html;
+}
+
+// Добавляем блок CDEK под каждый заказ в личном кабинете
+add_action('woocommerce_my_account_my_orders_column_order-status', 'add_cdek_status_to_orders_list', 10, 1);
+function add_cdek_status_to_orders_list($order) {
+    echo '<div class="cdek-status-block">';
+    echo get_cdek_order_status($order->get_id());
+    echo '</div>';
+}
+
+// Если используешь свой template profile-orders.php — просто вставь туда эту строку в цикл:
+ // <?php echo get_cdek_order_status($order->get_id()); ?>

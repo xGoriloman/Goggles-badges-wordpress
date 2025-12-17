@@ -1,0 +1,2689 @@
+путь до файла
+login.php
+содержимое файла
+<?php
+/**
+ * Template Name: Страница входа
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Если пользователь уже авторизован, перенаправляем на главную
+if (is_user_logged_in()) {
+    wp_redirect(home_url());
+    exit;
+}
+
+get_header(); ?>
+
+<main class="page">
+    <div class="page__container">
+        <div class="back__container">
+            <a href="javascript:history.back()" class="back__button">
+                <img src="<?php echo get_template_directory_uri(); ?>/assets/img/icon/arrow-black.svg" alt="Назад" />
+                Назад
+            </a>
+        </div>
+
+        <div class="auth-page">
+            <div class="auth-page__container">
+                <div class="auth-page__content">
+                    <h1 class="auth-page__title">Вход в аккаунт</h1>
+                    
+                    <?php
+                    // Вывод ошибок
+                    if (isset($_GET['login']) && $_GET['login'] == 'failed') {
+                        echo '<div class="auth-message error">Неверный логин или пароль</div>';
+                    }
+                    
+                    if (isset($_GET['checkemail']) && $_GET['checkemail'] == 'confirm') {
+                        echo '<div class="auth-message success">Проверьте вашу почту для сброса пароля</div>';
+                    }
+                    ?>
+
+                    <form class="auth-form" method="post" action="<?php echo wp_login_url(); ?>">
+                        <div class="auth-form__group">
+                            <label for="login_username" class="auth-form__label">Имя пользователя или Email *</label>
+                            <input type="text" id="login_username" name="log" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="login_password" class="auth-form__label">Пароль *</label>
+                            <input type="password" id="login_password" name="pwd" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group auth-form__group--row">
+                            <label class="auth-form__checkbox">
+                                <input type="checkbox" name="rememberme">
+                                <span>Запомнить меня</span>
+                            </label>
+                            
+                            <a href="<?php echo get_permalink(get_page_by_path('password-reset')); ?>" class="auth-form__forgot">Забыли пароль?</a>
+                        </div>
+                        
+                        <input type="hidden" name="redirect_to" value="<?php echo home_url(); ?>">
+                        
+                        <button type="submit" class="auth-form__button button-black">Войти</button>
+                    </form>
+                    
+                    <div class="auth-page__footer">
+                        <p>Нет аккаунта? <a href="<?php echo get_permalink(get_page_by_path('register')); ?>" class="auth-page__link">Зарегистрироваться</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+page-profile-account.php
+содержимое файла
+<?php
+/**
+ * Template Name: Анкета профиля
+ * Template Post Type: page
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Проверяем авторизацию пользователя
+if (!is_user_logged_in()) {
+    wp_redirect(wp_login_url(get_permalink()));
+    exit;
+}
+
+$current_user = wp_get_current_user();
+
+// Обработка формы обновления профиля
+if (isset($_POST['update_profile_nonce']) && wp_verify_nonce($_POST['update_profile_nonce'], 'update_profile')) {
+    $user_id = get_current_user_id();
+    $first_name = sanitize_text_field($_POST['first_name']);
+    $last_name = sanitize_text_field($_POST['last_name']);
+    $display_name = sanitize_text_field($_POST['display_name']);
+    $email = sanitize_email($_POST['email']);
+    $phone = sanitize_text_field($_POST['phone']);
+    
+    $userdata = array(
+        'ID' => $user_id,
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'display_name' => $display_name,
+        'user_email' => $email
+    );
+    
+    $result = wp_update_user($userdata);
+    
+    if (!is_wp_error($result)) {
+        // Обновляем телефон и другие мета-данные
+        update_user_meta($user_id, 'billing_phone', $phone);
+        update_user_meta($user_id, 'billing_first_name', $first_name);
+        update_user_meta($user_id, 'billing_last_name', $last_name);
+        
+        $success_message = 'Профиль успешно обновлен';
+    } else {
+        $error_message = 'Ошибка при обновлении профиля: ' . $result->get_error_message();
+    }
+}
+
+// Обработка смены пароля
+if (isset($_POST['change_password_nonce']) && wp_verify_nonce($_POST['change_password_nonce'], 'change_password')) {
+    $user_id = get_current_user_id();
+    $current_password = $_POST['current_password'];
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    // Проверяем текущий пароль
+    $user = get_user_by('id', $user_id);
+    if ($user && wp_check_password($current_password, $user->data->user_pass, $user_id)) {
+        if ($new_password === $confirm_password) {
+            if (strlen($new_password) >= 6) {
+                wp_set_password($new_password, $user_id);
+                $success_message = 'Пароль успешно изменен';
+                
+                // Автоматически логиним пользователя после смены пароля
+                wp_set_current_user($user_id);
+                wp_set_auth_cookie($user_id);
+            } else {
+                $error_message = 'Пароль должен содержать минимум 6 символов';
+            }
+        } else {
+            $error_message = 'Новые пароли не совпадают';
+        }
+    } else {
+        $error_message = 'Текущий пароль указан неверно';
+    }
+}
+
+$user_phone = get_user_meta($current_user->ID, 'billing_phone', true);
+
+get_header(); ?>
+
+<div class="wrapper">
+    <header class="header">
+        <div class="header__container">
+            <a href="<?php echo home_url(); ?>" class="header__logo logo">
+                <?php bloginfo('name'); ?>
+            </a>
+            
+            <div class="header__menu menu">
+                <button type="button" class="menu__icon icon-menu">
+                    <span></span>
+                </button>
+                
+                <nav class="menu__body">
+                    <?php
+                    wp_nav_menu(array(
+                        'theme_location' => 'primary',
+                        'container' => false,
+                        'menu_class' => 'menu__list',
+                        'walker' => new Custom_Walker_Nav_Menu()
+                    ));
+                    ?>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="section__title">
+            <h1 class="title">Личный кабинет</h1>
+        </section>
+
+        <section class="profile">
+            <div class="profile__container">
+                <!-- Боковая навигация -->
+                <aside class="profile__sidebar">
+                    <div class="profile__avatar">
+                        <?php
+                        $avatar = get_avatar($current_user->ID, 80, '', '', array('class' => 'profile__avatar-image'));
+                        if ($avatar) {
+                            echo $avatar;
+                        } else {
+                            echo '<img src="' . get_template_directory_uri() . '/img/profile/avatar.jpg" alt="Аватар пользователя" class="profile__avatar-image">';
+                        }
+                        ?>
+                        <p class="profile__avatar-name">
+                            <?php 
+                            $display_name = $current_user->display_name ?: $current_user->user_login;
+                            echo esc_html($display_name);
+                            ?>
+                        </p>
+                    </div>
+                    
+                    <nav class="profile__navigation" aria-label="Страницы аккаунта">
+                        <ul class="profile__nav-list">
+                            <li class="profile__nav-item profile__nav-item--orders">
+                                <a href="<?php echo wc_get_account_endpoint_url('orders'); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">📦</span>
+                                    Заказы
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--account profile__nav-item--active">
+                                <a href="<?php echo esc_url(get_permalink()); ?>" class="profile__nav-link" aria-current="page">
+                                    <span class="profile__nav-icon">👤</span>
+                                    Анкета
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--logout">
+                                <a href="<?php echo wp_logout_url(home_url()); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">🚪</span>
+                                    Выйти
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Основной контент -->
+                <div class="profile__main">
+                    <div class="profile__content">
+                        <?php if (isset($success_message)) : ?>
+                            <div class="profile-message profile-message--success">
+                                <?php echo esc_html($success_message); ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($error_message)) : ?>
+                            <div class="profile-message profile-message--error">
+                                <?php echo esc_html($error_message); ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Секция информации пользователя -->
+                        <section class="profile-info">
+                            <h2 class="profile-info__title">Информация</h2>
+
+                            <form method="post" class="profile-info__form">
+                                <?php wp_nonce_field('update_profile', 'update_profile_nonce'); ?>
+                                
+                                <div class="profile-info__row">
+                                    <div class="profile-info__field">
+                                        <label class="profile-info__label">Имя</label>
+                                        <div class="profile-info__input-wrapper">
+                                            <input type="text" 
+                                                   name="first_name" 
+                                                   class="profile-info__input" 
+                                                   value="<?php echo esc_attr($current_user->first_name); ?>"
+                                                   required>
+                                        </div>
+                                    </div>
+
+                                    <div class="profile-info__field">
+                                        <label class="profile-info__label">Фамилия</label>
+                                        <div class="profile-info__input-wrapper">
+                                            <input type="text" 
+                                                   name="last_name" 
+                                                   class="profile-info__input" 
+                                                   value="<?php echo esc_attr($current_user->last_name); ?>"
+                                                   required>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="profile-info__field">
+                                    <label class="profile-info__label">Отображаемое имя</label>
+                                    <div class="profile-info__input-wrapper">
+                                        <input type="text" 
+                                               name="display_name" 
+                                               class="profile-info__input" 
+                                               value="<?php echo esc_attr($current_user->display_name); ?>"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-info__field">
+                                    <label class="profile-info__label">Email</label>
+                                    <div class="profile-info__input-wrapper">
+                                        <input type="email" 
+                                               name="email" 
+                                               class="profile-info__input" 
+                                               value="<?php echo esc_attr($current_user->user_email); ?>"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-info__field">
+                                    <label class="profile-info__label">Телефон</label>
+                                    <div class="profile-info__input-wrapper">
+                                        <input type="tel" 
+                                               name="phone" 
+                                               class="profile-info__input" 
+                                               value="<?php echo esc_attr($user_phone); ?>">
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Секция смены пароля -->
+                        <section class="profile-password">
+                            <h2 class="profile-password__title">Смена пароля</h2>
+
+                            <form method="post" class="profile-password__form">
+                                <?php wp_nonce_field('change_password', 'change_password_nonce'); ?>
+                                
+                                <div class="profile-password__field">
+                                    <label class="profile-password__label">Действующий пароль</label>
+                                    <div class="profile-password__input-wrapper">
+                                        <input type="password" 
+                                               name="current_password" 
+                                               class="profile-password__input" 
+                                               placeholder="Введите текущий пароль"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-password__field">
+                                    <label class="profile-password__label">Новый пароль</label>
+                                    <div class="profile-password__input-wrapper">
+                                        <input type="password" 
+                                               name="new_password" 
+                                               class="profile-password__input" 
+                                               placeholder="Введите новый пароль"
+                                               minlength="6"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-password__field">
+                                    <label class="profile-password__label">Подтвердите новый пароль</label>
+                                    <div class="profile-password__input-wrapper">
+                                        <input type="password" 
+                                               name="confirm_password" 
+                                               class="profile-password__input" 
+                                               placeholder="Подтвердите новый пароль"
+                                               minlength="6"
+                                               required>
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Кнопка сохранения -->
+                        <div class="profile__actions">
+                            <button type="submit" 
+                                    form="profile-info__form" 
+                                    class="profile__save-button button button--black">
+                                Сохранить изменения
+                            </button>
+                            
+                            <button type="submit" 
+                                    form="profile-password__form" 
+                                    class="profile__save-button button button--transparent">
+                                Сменить пароль
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+page-profile.php
+содержимое файла
+<?php
+/**
+ * Template Name: Личный кабинет
+ * Template Post Type: page
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Проверяем авторизацию пользователя
+if (!is_user_logged_in()) {
+    wp_redirect(wp_login_url(get_permalink()));
+    exit;
+}
+
+$current_user = wp_get_current_user();
+
+get_header(); ?>
+
+<div class="wrapper">
+    <header class="header">
+        <div class="header__container">
+            <a href="<?php echo home_url(); ?>" class="header__logo logo">
+                <?php bloginfo('name'); ?>
+            </a>
+            
+            <div class="header__menu menu">
+                <button type="button" class="menu__icon icon-menu">
+                    <span></span>
+                </button>
+                
+                <nav class="menu__body">
+                    <?php
+                    wp_nav_menu(array(
+                        'theme_location' => 'primary',
+                        'container' => false,
+                        'menu_class' => 'menu__list',
+                        'walker' => new Custom_Walker_Nav_Menu()
+                    ));
+                    ?>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="section__title">
+            <h1 class="title">Личный кабинет</h1>
+        </section>
+
+        <section class="profile">
+            <div class="profile__container">
+                <!-- Боковая навигация -->
+                <aside class="profile__sidebar">
+                    <div class="profile__avatar">
+                        <?php
+                        $avatar = get_avatar($current_user->ID, 80, '', '', array('class' => 'profile__avatar-image'));
+                        if ($avatar) {
+                            echo $avatar;
+                        } else {
+                            echo '<img src="' . get_template_directory_uri() . '/img/profile/avatar.jpg" alt="Аватар пользователя" class="profile__avatar-image">';
+                        }
+                        ?>
+                        <p class="profile__avatar-name">
+                            <?php 
+                            $display_name = $current_user->display_name ?: $current_user->user_login;
+                            echo esc_html($display_name);
+                            ?>
+                        </p>
+                    </div>
+                    
+                    <nav class="profile__navigation" aria-label="Страницы аккаунта">
+                        <ul class="profile__nav-list">
+                            <li class="profile__nav-item profile__nav-item--orders <?php echo (is_page('profile') || !isset($_GET['tab'])) ? 'profile__nav-item--active' : ''; ?>">
+                                <a href="<?php echo esc_url(get_permalink()); ?>" class="profile__nav-link" aria-current="page">
+                                    <span class="profile__nav-icon">📦</span>
+                                    Заказы
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--account <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'account') ? 'profile__nav-item--active' : ''; ?>">
+                                <a href="<?php echo esc_url(add_query_arg('tab', 'account', get_permalink())); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">👤</span>
+                                    Анкета
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--favorites <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'favorites') ? 'profile__nav-item--active' : ''; ?>">
+                                <a href="<?php echo esc_url(add_query_arg('tab', 'favorites', get_permalink())); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">❤️</span>
+                                    Избранное
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--logout">
+                                <a href="<?php echo wp_logout_url(home_url()); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">🚪</span>
+                                    Выйти
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Основной контент -->
+                <div class="profile__main">
+                    <?php
+                    $current_tab = isset($_GET['tab']) ? $_GET['tab'] : 'orders';
+                    
+                    switch ($current_tab) {
+                        case 'account':
+                            include 'profile-account.php';
+                            break;
+                            
+                        case 'favorites':
+                            include 'profile-favorites.php';
+                            break;
+                            
+                        default:
+                            include 'profile-orders.php';
+                            break;
+                    }
+                    ?>
+                </div>
+            </div>
+        </section>
+    </main>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+password-reset.php
+содержимое файла
+<?php
+/**
+ * Template Name: Восстановление пароля
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Если пользователь уже авторизован, перенаправляем на главную
+if (is_user_logged_in()) {
+    wp_redirect(home_url());
+    exit;
+}
+
+get_header(); ?>
+
+<main class="page">
+    <div class="page__container">
+        <div class="back__container">
+            <a href="javascript:history.back()" class="back__button">
+                <img src="<?php echo get_template_directory_uri(); ?>/assets/img/icon/arrow-black.svg" alt="Назад" />
+                Назад
+            </a>
+        </div>
+
+        <div class="auth-page">
+            <div class="auth-page__container">
+                <div class="auth-page__content">
+                    <h1 class="auth-page__title">Восстановление пароля</h1>
+                    
+                    <?php
+                    // Показываем сообщения WordPress если есть
+                    if (isset($_GET['checkemail']) && $_GET['checkemail'] == 'confirm') {
+                        echo '<div class="auth-message success">Проверьте вашу почту для получения ссылки восстановления пароля.</div>';
+                    }
+                    
+                    if (isset($_GET['error'])) {
+                        $errors = array(
+                            'invalid_email' => 'Пользователь с таким email не найден',
+                            'empty_email' => 'Введите email адрес'
+                        );
+                        if (isset($errors[$_GET['error']])) {
+                            echo '<div class="auth-message error">' . $errors[$_GET['error']] . '</div>';
+                        }
+                    }
+                    ?>
+
+                    <!-- Форма запроса сброса пароля -->
+                    <form class="auth-form" id="password-reset-form" method="post">
+                        <div class="auth-form__group">
+                            <label for="user_email" class="auth-form__label">Email адрес *</label>
+                            <input type="email" id="user_email" name="user_email" class="auth-form__input" required>
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                                На этот email будет отправлена ссылка для сброса пароля
+                            </small>
+                        </div>
+                        
+                        <input type="hidden" name="action" value="password_reset_request">
+                        <?php wp_nonce_field('password_reset_nonce', 'password_reset_nonce'); ?>
+                        
+                        <button type="submit" class="auth-form__button button-black" id="reset-submit">Отправить ссылку</button>
+                    </form>
+                    
+                    <div class="auth-page__footer">
+                        <p>Вспомнили пароль? <a href="<?php echo get_permalink(get_page_by_path('login')); ?>" class="auth-page__link">Войти</a></p>
+                        <p>Нет аккаунта? <a href="<?php echo get_permalink(get_page_by_path('register')); ?>" class="auth-page__link">Зарегистрироваться</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const resetForm = document.getElementById('password-reset-form');
+    const resetSubmit = document.getElementById('reset-submit');
+    
+    if (resetForm) {
+        resetForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Показываем лоадер
+            resetSubmit.textContent = 'Отправка...';
+            resetSubmit.disabled = true;
+            
+            // Собираем данные формы
+            const formData = new FormData(resetForm);
+            
+            // AJAX запрос
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Password reset response:', data);
+                
+                if (data.success) {
+                    // Успешный запрос
+                    window.flsNotifications.success(
+                        data.data.message || 'Ссылка для сброса пароля отправлена на ваш email',
+                        'Проверьте почту'
+                    );
+                    
+                    // Очищаем форму
+                    resetForm.reset();
+                    
+                    // Перенаправляем на страницу входа через 3 секунды
+                    setTimeout(() => {
+                        window.location.href = '<?php echo get_permalink(get_page_by_path('login')); ?>';
+                    }, 3000);
+                    
+                } else {
+                    // Ошибка
+                    window.flsNotifications.error(
+                        data.data.message || 'Произошла ошибка при отправке запроса',
+                        'Ошибка'
+                    );
+                }
+                
+                resetSubmit.textContent = 'Отправить ссылку';
+                resetSubmit.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.flsNotifications.error(
+                    'Произошла ошибка сети. Попробуйте еще раз.',
+                    'Ошибка сети'
+                );
+                
+                resetSubmit.textContent = 'Отправить ссылку';
+                resetSubmit.disabled = false;
+            });
+        });
+    }
+});
+</script>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+profile-account.php
+содержимое файла
+<?php
+// Обработка формы обновления профиля
+if (isset($_POST['update_profile_nonce']) && wp_verify_nonce($_POST['update_profile_nonce'], 'update_profile')) {
+    $user_id = get_current_user_id();
+    $first_name = sanitize_text_field($_POST['first_name']);
+    $last_name = sanitize_text_field($_POST['last_name']);
+    $display_name = sanitize_text_field($_POST['display_name']);
+    $email = sanitize_email($_POST['email']);
+    $phone = sanitize_text_field($_POST['phone']);
+    
+    $userdata = array(
+        'ID' => $user_id,
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'display_name' => $display_name,
+        'user_email' => $email
+    );
+    
+    $result = wp_update_user($userdata);
+    
+    if (!is_wp_error($result)) {
+        // Обновляем телефон
+        update_user_meta($user_id, 'billing_phone', $phone);
+        
+        echo '<div class="profile-message profile-message--success">Профиль успешно обновлен</div>';
+    } else {
+        echo '<div class="profile-message profile-message--error">Ошибка при обновлении профиля</div>';
+    }
+}
+
+$current_user = wp_get_current_user();
+$user_phone = get_user_meta($current_user->ID, 'billing_phone', true);
+?>
+
+<div class="profile-account">
+    <div class="profile-account__header">
+        <h2 class="profile-account__title">Анкета</h2>
+    </div>
+
+    <form method="post" class="profile-account__form">
+        <?php wp_nonce_field('update_profile', 'update_profile_nonce'); ?>
+        
+        <div class="profile-account__fields">
+            <div class="profile-account__field">
+                <label for="first_name" class="profile-account__label">Имя</label>
+                <input type="text" 
+                       id="first_name" 
+                       name="first_name" 
+                       value="<?php echo esc_attr($current_user->first_name); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="last_name" class="profile-account__label">Фамилия</label>
+                <input type="text" 
+                       id="last_name" 
+                       name="last_name" 
+                       value="<?php echo esc_attr($current_user->last_name); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="display_name" class="profile-account__label">Отображаемое имя</label>
+                <input type="text" 
+                       id="display_name" 
+                       name="display_name" 
+                       value="<?php echo esc_attr($current_user->display_name); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="email" class="profile-account__label">Email</label>
+                <input type="email" 
+                       id="email" 
+                       name="email" 
+                       value="<?php echo esc_attr($current_user->user_email); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="phone" class="profile-account__label">Телефон</label>
+                <input type="tel" 
+                       id="phone" 
+                       name="phone" 
+                       value="<?php echo esc_attr($user_phone); ?>" 
+                       class="profile-account__input">
+            </div>
+        </div>
+        
+        <button type="submit" class="profile-account__submit button-black">
+            Сохранить изменения
+        </button>
+    </form>
+</div>
+
+==================================================
+
+путь до файла
+profile-favorites.php
+содержимое файла
+<?php
+$favorites = get_user_favorites();
+?>
+
+<div class="profile-favorites">
+    <div class="profile-favorites__header">
+        <h2 class="profile-favorites__title">Избранное</h2>
+    </div>
+
+    <div class="profile-favorites__content">
+        <?php if (!empty($favorites)) : ?>
+            <div class="profile-favorites__products products">
+                <?php foreach ($favorites as $product_id) : 
+                    $product = wc_get_product($product_id);
+                    if ($product && $product->is_visible()) : ?>
+                        <div class="card">
+                            <?php if ($product->is_on_sale()) : 
+                                $regular_price = $product->get_regular_price();
+                                $sale_price = $product->get_sale_price();
+                                $discount = round((($regular_price - $sale_price) / $regular_price) * 100);
+                            ?>
+                                <span class="card__discount">-<?php echo $discount; ?>%</span>
+                            <?php endif; ?>
+                            
+                            <span class="card__favourite active" data-product-id="<?php echo $product_id; ?>">
+                                <svg width="18" height="15" viewBox="0 0 18 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12.87 0C11.34 0 9.99 0.606935 9 1.73411C8.01 0.606935 6.66 0 5.13 0C2.34 0 0 2.25434 0 4.94218C0 5.11559 0 5.289 0 5.46241C0.36 9.53759 4.86 12.9191 7.47 14.5665C7.92 14.8266 8.46 15 9 15C9.54 15 10.08 14.8266 10.53 14.5665C13.14 12.9191 17.64 9.53759 18 5.54912C18 5.37571 18 5.20229 18 5.02888C18 2.25434 15.66 0 12.87 0ZM16.2 5.289C15.93 8.75724 11.43 11.8786 9.54 13.0058C9.18 13.1792 8.82 13.1792 8.46 13.0058C6.57 11.7919 2.16 8.67053 1.8 5.20229C1.8 5.20229 1.8 5.02888 1.8 4.94218C1.8 3.20812 3.33 1.73411 5.13 1.73411C6.48 1.73411 7.65 2.51445 8.19 3.64165C8.28 3.98841 8.64 4.16182 9 4.16182C9.36 4.16182 9.72 3.98841 9.81 3.64165C10.35 2.51445 11.52 1.73411 12.87 1.73411C14.67 1.73411 16.2 3.20812 16.2 4.94218C16.2 5.02888 16.2 5.20229 16.2 5.289Z" fill="#191919" />
+                                    <path d="M12.87 0C11.34 0 9.99 0.606935 9 1.73411C8.01 0.606935 6.66 0 5.13 0C2.34 0 0 2.25434 0 4.94218C0 5.11559 0 5.289 0 5.46241C0.36 9.53759 4.86 12.9191 7.47 14.5665C7.92 14.8266 8.46 15 9 15C9.54 15 10.08 14.8266 10.53 14.5665C13.14 12.9191 17.64 9.53759 18 5.54912C18 5.37571 18 5.20229 18 5.02888C18 2.25433 15.66 0 12.87 0Z" fill="#F80F4E" />
+                                </svg>
+                            </span>
+                            
+                            <a href="<?php echo get_permalink($product_id); ?>" class="card__image-ibg">
+                                <?php echo $product->get_image('full'); ?>
+                            </a>
+                            
+                            <div class="card__conten">
+                                <p class="card__article">Арт <?php echo $product->get_sku() ?: $product_id; ?></p>
+                                
+                                <?php
+                                $brands = wp_get_post_terms($product_id, 'product_brand');
+                                if ($brands && !is_wp_error($brands)) {
+                                    echo '<a href="' . get_term_link($brands[0]) . '" class="card__attribute">' . $brands[0]->name . '</a>';
+                                }
+                                ?>
+                                
+                                <a href="<?php echo get_permalink($product_id); ?>" class="card__title">
+                                    <?php echo $product->get_name(); ?>
+                                </a>
+                                
+                                <div class="card__prices">
+                                    <?php if ($product->is_on_sale()) : ?>
+                                        <div class="card__price card__new-price"><?php echo $product->get_sale_price(); ?> ₽</div>
+                                        <div class="card__price card__old-price"><?php echo $product->get_regular_price(); ?> ₽</div>
+                                    <?php else : ?>
+                                        <div class="card__price card__new-price"><?php echo $product->get_price(); ?> ₽</div>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <?php if ($product->is_in_stock()) : ?>
+                                    <button class="card__button button-black add_to_cart_button" 
+                                            data-product_id="<?php echo $product_id; ?>" 
+                                            data-product_sku="<?php echo $product->get_sku(); ?>">
+                                        В корзину
+                                    </button>
+                                <?php else : ?>
+                                    <div class="card__button button-black disabled">Нет в наличии</div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <div class="profile-favorites__empty">
+                <p>В избранном пока нет товаров</p>
+                <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" class="button button-black">
+                    Перейти в магазин
+                </a>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+==================================================
+
+путь до файла
+profile-orders.php
+содержимое файла
+<?php
+// Получаем заказы пользователя
+$customer_orders = wc_get_orders(array(
+    'customer' => get_current_user_id(),
+    'limit' => 10,
+    'orderby' => 'date',
+    'order' => 'DESC'
+));
+?>
+
+<div class="profile-orders">
+    <div class="profile-orders__header">
+        <h2 class="profile-orders__title">Заказы</h2>
+    </div>
+
+    <div class="profile-orders__list">
+        <?php if (!empty($customer_orders)) : ?>
+            <?php foreach ($customer_orders as $order) : 
+                $order_id = $order->get_id();
+                $order_date = $order->get_date_created();
+                $order_total = $order->get_total();
+                $order_status = $order->get_status();
+                $order_items = $order->get_items();
+                
+                // Получаем статус заказа на русском
+                $status_labels = array(
+                    'pending'    => 'Ожидает оплаты',
+                    'processing' => 'В обработке',
+                    'on-hold'    => 'На удержании',
+                    'completed'  => 'Завершен',
+                    'cancelled'  => 'Отменен',
+                    'refunded'   => 'Возвращен',
+                    'failed'     => 'Неудачный'
+                );
+                
+                $status_label = isset($status_labels[$order_status]) ? $status_labels[$order_status] : $order_status;
+                
+                // Иконка в зависимости от статуса
+                $status_icon = 'delivery-process.svg';
+                $status_class = '';
+                
+                switch ($order_status) {
+                    case 'completed':
+                        $status_icon = 'delivery-check.svg';
+                        $status_class = 'order-card__icon-bg--success';
+                        break;
+                    case 'processing':
+                        $status_icon = 'delivery-truck.svg';
+                        $status_class = 'order-card__icon-bg--primary';
+                        break;
+                    case 'pending':
+                        $status_icon = 'delivery-process.svg';
+                        $status_class = 'order-card__icon-bg--warning';
+                        break;
+                    default:
+                        $status_icon = 'delivery-process.svg';
+                        $status_class = 'order-card__icon-bg--secondary';
+                }
+                ?>
+                
+                <div class="profile-orders__item order-card">
+                    <div class="order-card__content">
+                        <div class="order-card__info">
+                            <div class="order-card__date">
+                                От <?php echo $order_date->format('d F Y'); ?> • #<?php echo $order_id; ?>
+                            </div>
+                            <h3 class="order-card__status"><?php echo esc_html($status_label); ?></h3>
+                            <div class="order-card__delivery">
+                                <?php
+                                // Информация о доставке
+                                $shipping_method = $order->get_shipping_method();
+                                if ($shipping_method) {
+                                    echo esc_html($shipping_method);
+                                } else {
+                                    echo 'Информация о доставке';
+                                }
+                                ?>
+                            </div>
+                        </div>
+
+                        <div class="order-card__price">
+                            <div class="order-card__amount"><?php echo wc_price($order_total); ?></div>
+                            <div class="order-card__icon">
+                                <div class="order-card__icon-bg order-card__icon-bg--primary <?php echo $status_class; ?>"></div>
+                                <div class="order-card__icon-bg order-card__icon-bg--secondary"></div>
+                                <img class="order-card__icon-image" 
+                                     src="<?php echo get_template_directory_uri(); ?>/img/icon/<?php echo $status_icon; ?>" 
+                                     alt="Статус заказа" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="order-card__actions">
+                        <a href="<?php echo esc_url($order->get_view_order_url()); ?>" 
+                           class="order-card__action order-card__action--view">
+                            Подробнее
+                        </a>
+                        
+                        <?php if ($order_status === 'completed') : ?>
+                            <a href="<?php echo esc_url(wc_get_endpoint_url('view-order', $order_id, wc_get_page_permalink('myaccount'))); ?>" 
+                               class="order-card__action order-card__action--repeat">
+                                Повторить заказ
+                            </a>
+                        <?php else : ?>
+                            <a href="<?php echo esc_url($order->get_view_order_url()); ?>" 
+                               class="order-card__action order-card__action--track">
+                                Отследить
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else : ?>
+            <div class="profile-orders__empty">
+                <p>У вас пока нет заказов</p>
+                <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" class="button button-black">
+                    Начать покупки
+                </a>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+==================================================
+
+путь до файла
+register.php
+содержимое файла
+<?php
+/**
+ * Template Name: Страница регистрации
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Если пользователь уже авторизован, перенаправляем на главную
+if (is_user_logged_in()) {
+    wp_redirect(home_url());
+    exit;
+}
+
+get_header(); ?>
+
+<main class="page">
+    <div class="page__container">
+        <div class="back__container">
+            <a href="javascript:history.back()" class="back__button">
+                <img src="<?php echo get_template_directory_uri(); ?>/assets/img/icon/arrow-black.svg" alt="Назад" />
+                Назад
+            </a>
+        </div>
+
+        <div class="auth-page">
+            <div class="auth-page__container">
+                <div class="auth-page__content">
+                    <h1 class="auth-page__title">Регистрация</h1>
+                    
+                    <?php
+                    // Вывод ошибок и сообщений
+                    if (isset($_GET['registration']) && $_GET['registration'] == 'success') {
+                        echo '<div class="auth-message success">Регистрация успешна! Теперь вы можете войти.</div>';
+                    }
+                    
+                    if (isset($_GET['error'])) {
+                        $errors = array(
+                            'empty_fields' => 'Заполните все поля',
+                            'password_mismatch' => 'Пароли не совпадают',
+                            'email_exists' => 'Email уже зарегистрирован',
+                            'invalid_email' => 'Неверный формат email',
+                            'weak_password' => 'Пароль слишком слабый',
+                            'username_exists' => 'Имя пользователя уже занято'
+                        );
+                        if (isset($errors[$_GET['error']])) {
+                            echo '<div class="auth-message error">' . $errors[$_GET['error']] . '</div>';
+                        }
+                    }
+                    ?>
+
+                    <form class="auth-form" id="register-form" method="post">
+                        <div class="auth-form__group">
+                            <label for="reg_username" class="auth-form__label">Имя пользователя *</label>
+                            <input type="text" id="reg_username" name="username" class="auth-form__input" required>
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                                Если имя занято, система предложит доступный вариант
+                            </small>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="reg_email" class="auth-form__label">Email *</label>
+                            <input type="email" id="reg_email" name="email" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="reg_password" class="auth-form__label">Пароль *</label>
+                            <input type="password" id="reg_password" name="password" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="reg_password2" class="auth-form__label">Повторите пароль *</label>
+                            <input type="password" id="reg_password2" name="password2" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label class="auth-form__checkbox">
+                                <input type="checkbox" name="agree_terms" required>
+                                <span>Я согласен с <a href="<?php echo get_permalink(get_page_by_path('terms')); ?>" target="_blank">правилами сайта</a></span>
+                            </label>
+                        </div>
+                        
+                        <input type="hidden" name="action" value="custom_registration">
+                        <input type="hidden" name="redirect_to" value="<?php 
+                            echo isset($_GET['redirect_to']) ? esc_url($_GET['redirect_to']) : home_url();
+                        ?>">
+                        <?php wp_nonce_field('custom_registration_nonce', 'registration_nonce'); ?>
+                        
+                        <button type="submit" class="auth-form__button button-black" id="register-submit">Зарегистрироваться</button>
+                        
+                        <!-- Контейнер для сообщений AJAX -->
+                        <div class="auth-form__message" id="register-message" style="display: none;"></div>
+                    </form>
+                    
+                    <div class="auth-page__footer">
+                        <p>Уже есть аккаунт? <a href="<?php echo get_permalink(get_page_by_path('login')); ?>" class="auth-page__link">Войти</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const registerForm = document.getElementById('register-form');
+    const registerSubmit = document.getElementById('register-submit');
+    
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Показываем лоадер
+            registerSubmit.textContent = 'Регистрация...';
+            registerSubmit.disabled = true;
+            
+            // Собираем данные формы
+            const formData = new FormData(registerForm);
+            
+            console.log('Sending registration request...');
+            
+            // AJAX запрос
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network error: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                
+                if (data.success) {
+                    // Успешная регистрация
+                    if (data.data.username && data.data.username !== formData.get('username')) {
+                        window.flsNotifications.success(
+                            'Регистрация успешна! Ваше имя пользователя: ' + data.data.username + '. Перенаправление...',
+                            'Успех'
+                        );
+                    } else {
+                        window.flsNotifications.success(
+                            'Регистрация успешна! Перенаправление...',
+                            'Успех'
+                        );
+                    }
+                    
+                    // Редирект после успешной регистрации
+                    if (data.data.redirect) {
+                        console.log('Redirecting to:', data.data.redirect);
+                        setTimeout(() => {
+                            window.location.href = data.data.redirect;
+                        }, 2000);
+                    } else {
+                        console.log('Redirecting to home');
+                        setTimeout(() => {
+                            window.location.href = '<?php echo home_url(); ?>';
+                        }, 2000);
+                    }
+                    
+                } else {
+                    // Обработка ошибок с разными форматами ответа
+                    let errorMessage = 'Произошла ошибка при регистрации';
+                    
+                    if (data.data && data.data.message) {
+                        // Формат: data.data.message
+                        errorMessage = data.data.message;
+                    } else if (data.message) {
+                        // Формат: data.message
+                        errorMessage = data.message;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        // Формат: data.data как массив ошибок
+                        errorMessage = data.data.join(', ');
+                    } else if (typeof data.data === 'string') {
+                        // Формат: data.data как строка
+                        errorMessage = data.data;
+                    }
+                    
+                    console.log('Error message:', errorMessage);
+                    
+                    // Показываем уведомление об ошибке
+                    window.flsNotifications.error(
+                        errorMessage,
+                        'Ошибка регистрации'
+                    );
+                    
+                    // Возвращаем кнопку в исходное состояние
+                    registerSubmit.textContent = 'Зарегистрироваться';
+                    registerSubmit.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.flsNotifications.error(
+                    'Произошла ошибка сети. Попробуйте еще раз.',
+                    'Ошибка сети'
+                );
+                
+                registerSubmit.textContent = 'Зарегистрироваться';
+                registerSubmit.disabled = false;
+            });
+        });
+    }
+
+    // Проверка доступности имени пользователя в реальном времени
+    const usernameInput = document.getElementById('reg_username');
+    if (usernameInput) {
+        let checkTimeout;
+        
+        usernameInput.addEventListener('input', function() {
+            clearTimeout(checkTimeout);
+            const username = this.value.trim();
+            
+            if (username.length < 3) {
+                return;
+            }
+            
+            checkTimeout = setTimeout(() => {
+                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=check_username&username=' + encodeURIComponent(username)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.available) {
+                        window.flsNotifications.warning(
+                            'Имя пользователя "' + username + '" уже занято. Система предложит доступный вариант при регистрации.',
+                            'Имя занято'
+                        );
+                    }
+                });
+            }, 500);
+        });
+    }
+});
+</script>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+scanner.js
+содержимое файла
+const fs = require('fs');
+const path = require('path');
+
+class FileScanner {
+    constructor(outputFile = 'scan_results.txt') {
+        this.outputFile = outputFile;
+        this.results = [];
+    }
+
+    scanDirectory(dirPath) {
+        try {
+            const items = fs.readdirSync(dirPath);
+            
+            for (const item of items) {
+                const fullPath = path.join(dirPath, item);
+                const stat = fs.statSync(fullPath);
+                
+                if (stat.isDirectory()) {
+                    // Пропускаем системные папки
+                    if (!['node_modules', '.git'].includes(item)) {
+                        this.scanDirectory(fullPath);
+                    }
+                } else if (stat.isFile()) {
+                    this.processFile(fullPath);
+                }
+            }
+        } catch (error) {
+            console.error(`Ошибка: ${dirPath}`);
+        }
+    }
+
+    processFile(filePath) {
+        try {
+            console.log(`Сканирую: ${filePath}`);
+            const content = fs.readFileSync(filePath, 'utf8');
+            
+            this.results.push({
+                path: filePath,
+                content: content
+            });
+            
+        } catch (error) {
+            this.results.push({
+                path: filePath,
+                content: `[ОШИБКА ЧТЕНИЯ: ${error.message}]`
+            });
+        }
+    }
+
+    writeResults() {
+        let outputContent = '';
+        
+        for (const result of this.results) {
+            outputContent += `путь до файла\n${result.path}\n`;
+            outputContent += `содержимое файла\n${result.content}\n`;
+            outputContent += '\n' + '='.repeat(50) + '\n\n';
+        }
+        
+        fs.writeFileSync(this.outputFile, outputContent, 'utf8');
+        console.log(`✅ Готово! Результаты в файле: ${this.outputFile}`);
+    }
+
+    scan(startPath) {
+        console.log(`Начинаю сканирование: ${startPath}`);
+        
+        if (!fs.existsSync(startPath)) {
+            console.error(`❌ Путь не существует: ${startPath}`);
+            return;
+        }
+        
+        const stat = fs.statSync(startPath);
+        
+        if (stat.isDirectory()) {
+            this.scanDirectory(startPath);
+        } else if (stat.isFile()) {
+            this.processFile(startPath);
+        }
+        
+        this.writeResults();
+    }
+}
+
+// Запуск
+const scanner = new FileScanner('результат.txt');
+const scanPath = process.argv[2] || '.';
+scanner.scan(scanPath);
+
+
+==================================================
+
+путь до файла
+результат.txt
+содержимое файла
+путь до файла
+login.php
+содержимое файла
+<?php
+/**
+ * Template Name: Страница входа
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Если пользователь уже авторизован, перенаправляем на главную
+if (is_user_logged_in()) {
+    wp_redirect(home_url());
+    exit;
+}
+
+get_header(); ?>
+
+<main class="page">
+    <div class="page__container">
+        <div class="back__container">
+            <a href="javascript:history.back()" class="back__button">
+                <img src="<?php echo get_template_directory_uri(); ?>/assets/img/icon/arrow-black.svg" alt="Назад" />
+                Назад
+            </a>
+        </div>
+
+        <div class="auth-page">
+            <div class="auth-page__container">
+                <div class="auth-page__content">
+                    <h1 class="auth-page__title">Вход в аккаунт</h1>
+                    
+                    <?php
+                    // Вывод ошибок
+                    if (isset($_GET['login']) && $_GET['login'] == 'failed') {
+                        echo '<div class="auth-message error">Неверный логин или пароль</div>';
+                    }
+                    
+                    if (isset($_GET['checkemail']) && $_GET['checkemail'] == 'confirm') {
+                        echo '<div class="auth-message success">Проверьте вашу почту для сброса пароля</div>';
+                    }
+                    ?>
+
+                    <form class="auth-form" method="post" action="<?php echo wp_login_url(); ?>">
+                        <div class="auth-form__group">
+                            <label for="login_username" class="auth-form__label">Имя пользователя или Email *</label>
+                            <input type="text" id="login_username" name="log" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="login_password" class="auth-form__label">Пароль *</label>
+                            <input type="password" id="login_password" name="pwd" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group auth-form__group--row">
+                            <label class="auth-form__checkbox">
+                                <input type="checkbox" name="rememberme">
+                                <span>Запомнить меня</span>
+                            </label>
+                            
+                            <a href="<?php echo get_permalink(get_page_by_path('password-reset')); ?>" class="auth-form__forgot">Забыли пароль?</a>
+                        </div>
+                        
+                        <input type="hidden" name="redirect_to" value="<?php echo home_url(); ?>">
+                        
+                        <button type="submit" class="auth-form__button button-black">Войти</button>
+                    </form>
+                    
+                    <div class="auth-page__footer">
+                        <p>Нет аккаунта? <a href="<?php echo get_permalink(get_page_by_path('register')); ?>" class="auth-page__link">Зарегистрироваться</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+page-profile-account.php
+содержимое файла
+<?php
+/**
+ * Template Name: Анкета профиля
+ * Template Post Type: page
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Проверяем авторизацию пользователя
+if (!is_user_logged_in()) {
+    wp_redirect(wp_login_url(get_permalink()));
+    exit;
+}
+
+$current_user = wp_get_current_user();
+
+// Обработка формы обновления профиля
+if (isset($_POST['update_profile_nonce']) && wp_verify_nonce($_POST['update_profile_nonce'], 'update_profile')) {
+    $user_id = get_current_user_id();
+    $first_name = sanitize_text_field($_POST['first_name']);
+    $last_name = sanitize_text_field($_POST['last_name']);
+    $display_name = sanitize_text_field($_POST['display_name']);
+    $email = sanitize_email($_POST['email']);
+    $phone = sanitize_text_field($_POST['phone']);
+    
+    $userdata = array(
+        'ID' => $user_id,
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'display_name' => $display_name,
+        'user_email' => $email
+    );
+    
+    $result = wp_update_user($userdata);
+    
+    if (!is_wp_error($result)) {
+        // Обновляем телефон и другие мета-данные
+        update_user_meta($user_id, 'billing_phone', $phone);
+        update_user_meta($user_id, 'billing_first_name', $first_name);
+        update_user_meta($user_id, 'billing_last_name', $last_name);
+        
+        $success_message = 'Профиль успешно обновлен';
+    } else {
+        $error_message = 'Ошибка при обновлении профиля: ' . $result->get_error_message();
+    }
+}
+
+// Обработка смены пароля
+if (isset($_POST['change_password_nonce']) && wp_verify_nonce($_POST['change_password_nonce'], 'change_password')) {
+    $user_id = get_current_user_id();
+    $current_password = $_POST['current_password'];
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    // Проверяем текущий пароль
+    $user = get_user_by('id', $user_id);
+    if ($user && wp_check_password($current_password, $user->data->user_pass, $user_id)) {
+        if ($new_password === $confirm_password) {
+            if (strlen($new_password) >= 6) {
+                wp_set_password($new_password, $user_id);
+                $success_message = 'Пароль успешно изменен';
+                
+                // Автоматически логиним пользователя после смены пароля
+                wp_set_current_user($user_id);
+                wp_set_auth_cookie($user_id);
+            } else {
+                $error_message = 'Пароль должен содержать минимум 6 символов';
+            }
+        } else {
+            $error_message = 'Новые пароли не совпадают';
+        }
+    } else {
+        $error_message = 'Текущий пароль указан неверно';
+    }
+}
+
+$user_phone = get_user_meta($current_user->ID, 'billing_phone', true);
+
+get_header(); ?>
+
+<div class="wrapper">
+    <header class="header">
+        <div class="header__container">
+            <a href="<?php echo home_url(); ?>" class="header__logo logo">
+                <?php bloginfo('name'); ?>
+            </a>
+            
+            <div class="header__menu menu">
+                <button type="button" class="menu__icon icon-menu">
+                    <span></span>
+                </button>
+                
+                <nav class="menu__body">
+                    <?php
+                    wp_nav_menu(array(
+                        'theme_location' => 'primary',
+                        'container' => false,
+                        'menu_class' => 'menu__list',
+                        'walker' => new Custom_Walker_Nav_Menu()
+                    ));
+                    ?>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="section__title">
+            <h1 class="title">Личный кабинет</h1>
+        </section>
+
+        <section class="profile">
+            <div class="profile__container">
+                <!-- Боковая навигация -->
+                <aside class="profile__sidebar">
+                    <div class="profile__avatar">
+                        <?php
+                        $avatar = get_avatar($current_user->ID, 80, '', '', array('class' => 'profile__avatar-image'));
+                        if ($avatar) {
+                            echo $avatar;
+                        } else {
+                            echo '<img src="' . get_template_directory_uri() . '/img/profile/avatar.jpg" alt="Аватар пользователя" class="profile__avatar-image">';
+                        }
+                        ?>
+                        <p class="profile__avatar-name">
+                            <?php 
+                            $display_name = $current_user->display_name ?: $current_user->user_login;
+                            echo esc_html($display_name);
+                            ?>
+                        </p>
+                    </div>
+                    
+                    <nav class="profile__navigation" aria-label="Страницы аккаунта">
+                        <ul class="profile__nav-list">
+                            <li class="profile__nav-item profile__nav-item--orders">
+                                <a href="<?php echo wc_get_account_endpoint_url('orders'); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">📦</span>
+                                    Заказы
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--account profile__nav-item--active">
+                                <a href="<?php echo esc_url(get_permalink()); ?>" class="profile__nav-link" aria-current="page">
+                                    <span class="profile__nav-icon">👤</span>
+                                    Анкета
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--logout">
+                                <a href="<?php echo wp_logout_url(home_url()); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">🚪</span>
+                                    Выйти
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Основной контент -->
+                <div class="profile__main">
+                    <div class="profile__content">
+                        <?php if (isset($success_message)) : ?>
+                            <div class="profile-message profile-message--success">
+                                <?php echo esc_html($success_message); ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($error_message)) : ?>
+                            <div class="profile-message profile-message--error">
+                                <?php echo esc_html($error_message); ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Секция информации пользователя -->
+                        <section class="profile-info">
+                            <h2 class="profile-info__title">Информация</h2>
+
+                            <form method="post" class="profile-info__form">
+                                <?php wp_nonce_field('update_profile', 'update_profile_nonce'); ?>
+                                
+                                <div class="profile-info__row">
+                                    <div class="profile-info__field">
+                                        <label class="profile-info__label">Имя</label>
+                                        <div class="profile-info__input-wrapper">
+                                            <input type="text" 
+                                                   name="first_name" 
+                                                   class="profile-info__input" 
+                                                   value="<?php echo esc_attr($current_user->first_name); ?>"
+                                                   required>
+                                        </div>
+                                    </div>
+
+                                    <div class="profile-info__field">
+                                        <label class="profile-info__label">Фамилия</label>
+                                        <div class="profile-info__input-wrapper">
+                                            <input type="text" 
+                                                   name="last_name" 
+                                                   class="profile-info__input" 
+                                                   value="<?php echo esc_attr($current_user->last_name); ?>"
+                                                   required>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="profile-info__field">
+                                    <label class="profile-info__label">Отображаемое имя</label>
+                                    <div class="profile-info__input-wrapper">
+                                        <input type="text" 
+                                               name="display_name" 
+                                               class="profile-info__input" 
+                                               value="<?php echo esc_attr($current_user->display_name); ?>"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-info__field">
+                                    <label class="profile-info__label">Email</label>
+                                    <div class="profile-info__input-wrapper">
+                                        <input type="email" 
+                                               name="email" 
+                                               class="profile-info__input" 
+                                               value="<?php echo esc_attr($current_user->user_email); ?>"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-info__field">
+                                    <label class="profile-info__label">Телефон</label>
+                                    <div class="profile-info__input-wrapper">
+                                        <input type="tel" 
+                                               name="phone" 
+                                               class="profile-info__input" 
+                                               value="<?php echo esc_attr($user_phone); ?>">
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Секция смены пароля -->
+                        <section class="profile-password">
+                            <h2 class="profile-password__title">Смена пароля</h2>
+
+                            <form method="post" class="profile-password__form">
+                                <?php wp_nonce_field('change_password', 'change_password_nonce'); ?>
+                                
+                                <div class="profile-password__field">
+                                    <label class="profile-password__label">Действующий пароль</label>
+                                    <div class="profile-password__input-wrapper">
+                                        <input type="password" 
+                                               name="current_password" 
+                                               class="profile-password__input" 
+                                               placeholder="Введите текущий пароль"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-password__field">
+                                    <label class="profile-password__label">Новый пароль</label>
+                                    <div class="profile-password__input-wrapper">
+                                        <input type="password" 
+                                               name="new_password" 
+                                               class="profile-password__input" 
+                                               placeholder="Введите новый пароль"
+                                               minlength="6"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="profile-password__field">
+                                    <label class="profile-password__label">Подтвердите новый пароль</label>
+                                    <div class="profile-password__input-wrapper">
+                                        <input type="password" 
+                                               name="confirm_password" 
+                                               class="profile-password__input" 
+                                               placeholder="Подтвердите новый пароль"
+                                               minlength="6"
+                                               required>
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Кнопка сохранения -->
+                        <div class="profile__actions">
+                            <button type="submit" 
+                                    form="profile-info__form" 
+                                    class="profile__save-button button button--black">
+                                Сохранить изменения
+                            </button>
+                            
+                            <button type="submit" 
+                                    form="profile-password__form" 
+                                    class="profile__save-button button button--transparent">
+                                Сменить пароль
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+page-profile.php
+содержимое файла
+<?php
+/**
+ * Template Name: Личный кабинет
+ * Template Post Type: page
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Проверяем авторизацию пользователя
+if (!is_user_logged_in()) {
+    wp_redirect(wp_login_url(get_permalink()));
+    exit;
+}
+
+$current_user = wp_get_current_user();
+
+get_header(); ?>
+
+<div class="wrapper">
+    <header class="header">
+        <div class="header__container">
+            <a href="<?php echo home_url(); ?>" class="header__logo logo">
+                <?php bloginfo('name'); ?>
+            </a>
+            
+            <div class="header__menu menu">
+                <button type="button" class="menu__icon icon-menu">
+                    <span></span>
+                </button>
+                
+                <nav class="menu__body">
+                    <?php
+                    wp_nav_menu(array(
+                        'theme_location' => 'primary',
+                        'container' => false,
+                        'menu_class' => 'menu__list',
+                        'walker' => new Custom_Walker_Nav_Menu()
+                    ));
+                    ?>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="section__title">
+            <h1 class="title">Личный кабинет</h1>
+        </section>
+
+        <section class="profile">
+            <div class="profile__container">
+                <!-- Боковая навигация -->
+                <aside class="profile__sidebar">
+                    <div class="profile__avatar">
+                        <?php
+                        $avatar = get_avatar($current_user->ID, 80, '', '', array('class' => 'profile__avatar-image'));
+                        if ($avatar) {
+                            echo $avatar;
+                        } else {
+                            echo '<img src="' . get_template_directory_uri() . '/img/profile/avatar.jpg" alt="Аватар пользователя" class="profile__avatar-image">';
+                        }
+                        ?>
+                        <p class="profile__avatar-name">
+                            <?php 
+                            $display_name = $current_user->display_name ?: $current_user->user_login;
+                            echo esc_html($display_name);
+                            ?>
+                        </p>
+                    </div>
+                    
+                    <nav class="profile__navigation" aria-label="Страницы аккаунта">
+                        <ul class="profile__nav-list">
+                            <li class="profile__nav-item profile__nav-item--orders <?php echo (is_page('profile') || !isset($_GET['tab'])) ? 'profile__nav-item--active' : ''; ?>">
+                                <a href="<?php echo esc_url(get_permalink()); ?>" class="profile__nav-link" aria-current="page">
+                                    <span class="profile__nav-icon">📦</span>
+                                    Заказы
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--account <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'account') ? 'profile__nav-item--active' : ''; ?>">
+                                <a href="<?php echo esc_url(add_query_arg('tab', 'account', get_permalink())); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">👤</span>
+                                    Анкета
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--favorites <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'favorites') ? 'profile__nav-item--active' : ''; ?>">
+                                <a href="<?php echo esc_url(add_query_arg('tab', 'favorites', get_permalink())); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">❤️</span>
+                                    Избранное
+                                </a>
+                            </li>
+                            <li class="profile__nav-item profile__nav-item--logout">
+                                <a href="<?php echo wp_logout_url(home_url()); ?>" class="profile__nav-link">
+                                    <span class="profile__nav-icon">🚪</span>
+                                    Выйти
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Основной контент -->
+                <div class="profile__main">
+                    <?php
+                    $current_tab = isset($_GET['tab']) ? $_GET['tab'] : 'orders';
+                    
+                    switch ($current_tab) {
+                        case 'account':
+                            include 'profile-account.php';
+                            break;
+                            
+                        case 'favorites':
+                            include 'profile-favorites.php';
+                            break;
+                            
+                        default:
+                            include 'profile-orders.php';
+                            break;
+                    }
+                    ?>
+                </div>
+            </div>
+        </section>
+    </main>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+password-reset.php
+содержимое файла
+<?php
+/**
+ * Template Name: Восстановление пароля
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Если пользователь уже авторизован, перенаправляем на главную
+if (is_user_logged_in()) {
+    wp_redirect(home_url());
+    exit;
+}
+
+get_header(); ?>
+
+<main class="page">
+    <div class="page__container">
+        <div class="back__container">
+            <a href="javascript:history.back()" class="back__button">
+                <img src="<?php echo get_template_directory_uri(); ?>/assets/img/icon/arrow-black.svg" alt="Назад" />
+                Назад
+            </a>
+        </div>
+
+        <div class="auth-page">
+            <div class="auth-page__container">
+                <div class="auth-page__content">
+                    <h1 class="auth-page__title">Восстановление пароля</h1>
+                    
+                    <?php
+                    // Показываем сообщения WordPress если есть
+                    if (isset($_GET['checkemail']) && $_GET['checkemail'] == 'confirm') {
+                        echo '<div class="auth-message success">Проверьте вашу почту для получения ссылки восстановления пароля.</div>';
+                    }
+                    
+                    if (isset($_GET['error'])) {
+                        $errors = array(
+                            'invalid_email' => 'Пользователь с таким email не найден',
+                            'empty_email' => 'Введите email адрес'
+                        );
+                        if (isset($errors[$_GET['error']])) {
+                            echo '<div class="auth-message error">' . $errors[$_GET['error']] . '</div>';
+                        }
+                    }
+                    ?>
+
+                    <!-- Форма запроса сброса пароля -->
+                    <form class="auth-form" id="password-reset-form" method="post">
+                        <div class="auth-form__group">
+                            <label for="user_email" class="auth-form__label">Email адрес *</label>
+                            <input type="email" id="user_email" name="user_email" class="auth-form__input" required>
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                                На этот email будет отправлена ссылка для сброса пароля
+                            </small>
+                        </div>
+                        
+                        <input type="hidden" name="action" value="password_reset_request">
+                        <?php wp_nonce_field('password_reset_nonce', 'password_reset_nonce'); ?>
+                        
+                        <button type="submit" class="auth-form__button button-black" id="reset-submit">Отправить ссылку</button>
+                    </form>
+                    
+                    <div class="auth-page__footer">
+                        <p>Вспомнили пароль? <a href="<?php echo get_permalink(get_page_by_path('login')); ?>" class="auth-page__link">Войти</a></p>
+                        <p>Нет аккаунта? <a href="<?php echo get_permalink(get_page_by_path('register')); ?>" class="auth-page__link">Зарегистрироваться</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const resetForm = document.getElementById('password-reset-form');
+    const resetSubmit = document.getElementById('reset-submit');
+    
+    if (resetForm) {
+        resetForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Показываем лоадер
+            resetSubmit.textContent = 'Отправка...';
+            resetSubmit.disabled = true;
+            
+            // Собираем данные формы
+            const formData = new FormData(resetForm);
+            
+            // AJAX запрос
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Password reset response:', data);
+                
+                if (data.success) {
+                    // Успешный запрос
+                    window.flsNotifications.success(
+                        data.data.message || 'Ссылка для сброса пароля отправлена на ваш email',
+                        'Проверьте почту'
+                    );
+                    
+                    // Очищаем форму
+                    resetForm.reset();
+                    
+                    // Перенаправляем на страницу входа через 3 секунды
+                    setTimeout(() => {
+                        window.location.href = '<?php echo get_permalink(get_page_by_path('login')); ?>';
+                    }, 3000);
+                    
+                } else {
+                    // Ошибка
+                    window.flsNotifications.error(
+                        data.data.message || 'Произошла ошибка при отправке запроса',
+                        'Ошибка'
+                    );
+                }
+                
+                resetSubmit.textContent = 'Отправить ссылку';
+                resetSubmit.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.flsNotifications.error(
+                    'Произошла ошибка сети. Попробуйте еще раз.',
+                    'Ошибка сети'
+                );
+                
+                resetSubmit.textContent = 'Отправить ссылку';
+                resetSubmit.disabled = false;
+            });
+        });
+    }
+});
+</script>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+profile-account.php
+содержимое файла
+<?php
+// Обработка формы обновления профиля
+if (isset($_POST['update_profile_nonce']) && wp_verify_nonce($_POST['update_profile_nonce'], 'update_profile')) {
+    $user_id = get_current_user_id();
+    $first_name = sanitize_text_field($_POST['first_name']);
+    $last_name = sanitize_text_field($_POST['last_name']);
+    $display_name = sanitize_text_field($_POST['display_name']);
+    $email = sanitize_email($_POST['email']);
+    $phone = sanitize_text_field($_POST['phone']);
+    
+    $userdata = array(
+        'ID' => $user_id,
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'display_name' => $display_name,
+        'user_email' => $email
+    );
+    
+    $result = wp_update_user($userdata);
+    
+    if (!is_wp_error($result)) {
+        // Обновляем телефон
+        update_user_meta($user_id, 'billing_phone', $phone);
+        
+        echo '<div class="profile-message profile-message--success">Профиль успешно обновлен</div>';
+    } else {
+        echo '<div class="profile-message profile-message--error">Ошибка при обновлении профиля</div>';
+    }
+}
+
+$current_user = wp_get_current_user();
+$user_phone = get_user_meta($current_user->ID, 'billing_phone', true);
+?>
+
+<div class="profile-account">
+    <div class="profile-account__header">
+        <h2 class="profile-account__title">Анкета</h2>
+    </div>
+
+    <form method="post" class="profile-account__form">
+        <?php wp_nonce_field('update_profile', 'update_profile_nonce'); ?>
+        
+        <div class="profile-account__fields">
+            <div class="profile-account__field">
+                <label for="first_name" class="profile-account__label">Имя</label>
+                <input type="text" 
+                       id="first_name" 
+                       name="first_name" 
+                       value="<?php echo esc_attr($current_user->first_name); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="last_name" class="profile-account__label">Фамилия</label>
+                <input type="text" 
+                       id="last_name" 
+                       name="last_name" 
+                       value="<?php echo esc_attr($current_user->last_name); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="display_name" class="profile-account__label">Отображаемое имя</label>
+                <input type="text" 
+                       id="display_name" 
+                       name="display_name" 
+                       value="<?php echo esc_attr($current_user->display_name); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="email" class="profile-account__label">Email</label>
+                <input type="email" 
+                       id="email" 
+                       name="email" 
+                       value="<?php echo esc_attr($current_user->user_email); ?>" 
+                       class="profile-account__input" 
+                       required>
+            </div>
+            
+            <div class="profile-account__field">
+                <label for="phone" class="profile-account__label">Телефон</label>
+                <input type="tel" 
+                       id="phone" 
+                       name="phone" 
+                       value="<?php echo esc_attr($user_phone); ?>" 
+                       class="profile-account__input">
+            </div>
+        </div>
+        
+        <button type="submit" class="profile-account__submit button-black">
+            Сохранить изменения
+        </button>
+    </form>
+</div>
+
+==================================================
+
+путь до файла
+profile-favorites.php
+содержимое файла
+<?php
+$favorites = get_user_favorites();
+?>
+
+<div class="profile-favorites">
+    <div class="profile-favorites__header">
+        <h2 class="profile-favorites__title">Избранное</h2>
+    </div>
+
+    <div class="profile-favorites__content">
+        <?php if (!empty($favorites)) : ?>
+            <div class="profile-favorites__products products">
+                <?php foreach ($favorites as $product_id) : 
+                    $product = wc_get_product($product_id);
+                    if ($product && $product->is_visible()) : ?>
+                        <div class="card">
+                            <?php if ($product->is_on_sale()) : 
+                                $regular_price = $product->get_regular_price();
+                                $sale_price = $product->get_sale_price();
+                                $discount = round((($regular_price - $sale_price) / $regular_price) * 100);
+                            ?>
+                                <span class="card__discount">-<?php echo $discount; ?>%</span>
+                            <?php endif; ?>
+                            
+                            <span class="card__favourite active" data-product-id="<?php echo $product_id; ?>">
+                                <svg width="18" height="15" viewBox="0 0 18 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12.87 0C11.34 0 9.99 0.606935 9 1.73411C8.01 0.606935 6.66 0 5.13 0C2.34 0 0 2.25434 0 4.94218C0 5.11559 0 5.289 0 5.46241C0.36 9.53759 4.86 12.9191 7.47 14.5665C7.92 14.8266 8.46 15 9 15C9.54 15 10.08 14.8266 10.53 14.5665C13.14 12.9191 17.64 9.53759 18 5.54912C18 5.37571 18 5.20229 18 5.02888C18 2.25434 15.66 0 12.87 0ZM16.2 5.289C15.93 8.75724 11.43 11.8786 9.54 13.0058C9.18 13.1792 8.82 13.1792 8.46 13.0058C6.57 11.7919 2.16 8.67053 1.8 5.20229C1.8 5.20229 1.8 5.02888 1.8 4.94218C1.8 3.20812 3.33 1.73411 5.13 1.73411C6.48 1.73411 7.65 2.51445 8.19 3.64165C8.28 3.98841 8.64 4.16182 9 4.16182C9.36 4.16182 9.72 3.98841 9.81 3.64165C10.35 2.51445 11.52 1.73411 12.87 1.73411C14.67 1.73411 16.2 3.20812 16.2 4.94218C16.2 5.02888 16.2 5.20229 16.2 5.289Z" fill="#191919" />
+                                    <path d="M12.87 0C11.34 0 9.99 0.606935 9 1.73411C8.01 0.606935 6.66 0 5.13 0C2.34 0 0 2.25434 0 4.94218C0 5.11559 0 5.289 0 5.46241C0.36 9.53759 4.86 12.9191 7.47 14.5665C7.92 14.8266 8.46 15 9 15C9.54 15 10.08 14.8266 10.53 14.5665C13.14 12.9191 17.64 9.53759 18 5.54912C18 5.37571 18 5.20229 18 5.02888C18 2.25433 15.66 0 12.87 0Z" fill="#F80F4E" />
+                                </svg>
+                            </span>
+                            
+                            <a href="<?php echo get_permalink($product_id); ?>" class="card__image-ibg">
+                                <?php echo $product->get_image('full'); ?>
+                            </a>
+                            
+                            <div class="card__conten">
+                                <p class="card__article">Арт <?php echo $product->get_sku() ?: $product_id; ?></p>
+                                
+                                <?php
+                                $brands = wp_get_post_terms($product_id, 'product_brand');
+                                if ($brands && !is_wp_error($brands)) {
+                                    echo '<a href="' . get_term_link($brands[0]) . '" class="card__attribute">' . $brands[0]->name . '</a>';
+                                }
+                                ?>
+                                
+                                <a href="<?php echo get_permalink($product_id); ?>" class="card__title">
+                                    <?php echo $product->get_name(); ?>
+                                </a>
+                                
+                                <div class="card__prices">
+                                    <?php if ($product->is_on_sale()) : ?>
+                                        <div class="card__price card__new-price"><?php echo $product->get_sale_price(); ?> ₽</div>
+                                        <div class="card__price card__old-price"><?php echo $product->get_regular_price(); ?> ₽</div>
+                                    <?php else : ?>
+                                        <div class="card__price card__new-price"><?php echo $product->get_price(); ?> ₽</div>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <?php if ($product->is_in_stock()) : ?>
+                                    <button class="card__button button-black add_to_cart_button" 
+                                            data-product_id="<?php echo $product_id; ?>" 
+                                            data-product_sku="<?php echo $product->get_sku(); ?>">
+                                        В корзину
+                                    </button>
+                                <?php else : ?>
+                                    <div class="card__button button-black disabled">Нет в наличии</div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <div class="profile-favorites__empty">
+                <p>В избранном пока нет товаров</p>
+                <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" class="button button-black">
+                    Перейти в магазин
+                </a>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+==================================================
+
+путь до файла
+profile-orders.php
+содержимое файла
+<?php
+// Получаем заказы пользователя
+$customer_orders = wc_get_orders(array(
+    'customer' => get_current_user_id(),
+    'limit' => 10,
+    'orderby' => 'date',
+    'order' => 'DESC'
+));
+?>
+
+<div class="profile-orders">
+    <div class="profile-orders__header">
+        <h2 class="profile-orders__title">Заказы</h2>
+    </div>
+
+    <div class="profile-orders__list">
+        <?php if (!empty($customer_orders)) : ?>
+            <?php foreach ($customer_orders as $order) : 
+                $order_id = $order->get_id();
+                $order_date = $order->get_date_created();
+                $order_total = $order->get_total();
+                $order_status = $order->get_status();
+                $order_items = $order->get_items();
+                
+                // Получаем статус заказа на русском
+                $status_labels = array(
+                    'pending'    => 'Ожидает оплаты',
+                    'processing' => 'В обработке',
+                    'on-hold'    => 'На удержании',
+                    'completed'  => 'Завершен',
+                    'cancelled'  => 'Отменен',
+                    'refunded'   => 'Возвращен',
+                    'failed'     => 'Неудачный'
+                );
+                
+                $status_label = isset($status_labels[$order_status]) ? $status_labels[$order_status] : $order_status;
+                
+                // Иконка в зависимости от статуса
+                $status_icon = 'delivery-process.svg';
+                $status_class = '';
+                
+                switch ($order_status) {
+                    case 'completed':
+                        $status_icon = 'delivery-check.svg';
+                        $status_class = 'order-card__icon-bg--success';
+                        break;
+                    case 'processing':
+                        $status_icon = 'delivery-truck.svg';
+                        $status_class = 'order-card__icon-bg--primary';
+                        break;
+                    case 'pending':
+                        $status_icon = 'delivery-process.svg';
+                        $status_class = 'order-card__icon-bg--warning';
+                        break;
+                    default:
+                        $status_icon = 'delivery-process.svg';
+                        $status_class = 'order-card__icon-bg--secondary';
+                }
+                ?>
+                
+                <div class="profile-orders__item order-card">
+                    <div class="order-card__content">
+                        <div class="order-card__info">
+                            <div class="order-card__date">
+                                От <?php echo $order_date->format('d F Y'); ?> • #<?php echo $order_id; ?>
+                            </div>
+                            <h3 class="order-card__status"><?php echo esc_html($status_label); ?></h3>
+                            <div class="order-card__delivery">
+                                <?php
+                                // Информация о доставке
+                                $shipping_method = $order->get_shipping_method();
+                                if ($shipping_method) {
+                                    echo esc_html($shipping_method);
+                                } else {
+                                    echo 'Информация о доставке';
+                                }
+                                ?>
+                            </div>
+                        </div>
+
+                        <div class="order-card__price">
+                            <div class="order-card__amount"><?php echo wc_price($order_total); ?></div>
+                            <div class="order-card__icon">
+                                <div class="order-card__icon-bg order-card__icon-bg--primary <?php echo $status_class; ?>"></div>
+                                <div class="order-card__icon-bg order-card__icon-bg--secondary"></div>
+                                <img class="order-card__icon-image" 
+                                     src="<?php echo get_template_directory_uri(); ?>/img/icon/<?php echo $status_icon; ?>" 
+                                     alt="Статус заказа" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="order-card__actions">
+                        <a href="<?php echo esc_url($order->get_view_order_url()); ?>" 
+                           class="order-card__action order-card__action--view">
+                            Подробнее
+                        </a>
+                        
+                        <?php if ($order_status === 'completed') : ?>
+                            <a href="<?php echo esc_url(wc_get_endpoint_url('view-order', $order_id, wc_get_page_permalink('myaccount'))); ?>" 
+                               class="order-card__action order-card__action--repeat">
+                                Повторить заказ
+                            </a>
+                        <?php else : ?>
+                            <a href="<?php echo esc_url($order->get_view_order_url()); ?>" 
+                               class="order-card__action order-card__action--track">
+                                Отследить
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else : ?>
+            <div class="profile-orders__empty">
+                <p>У вас пока нет заказов</p>
+                <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" class="button button-black">
+                    Начать покупки
+                </a>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+==================================================
+
+путь до файла
+register.php
+содержимое файла
+<?php
+/**
+ * Template Name: Страница регистрации
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Если пользователь уже авторизован, перенаправляем на главную
+if (is_user_logged_in()) {
+    wp_redirect(home_url());
+    exit;
+}
+
+get_header(); ?>
+
+<main class="page">
+    <div class="page__container">
+        <div class="back__container">
+            <a href="javascript:history.back()" class="back__button">
+                <img src="<?php echo get_template_directory_uri(); ?>/assets/img/icon/arrow-black.svg" alt="Назад" />
+                Назад
+            </a>
+        </div>
+
+        <div class="auth-page">
+            <div class="auth-page__container">
+                <div class="auth-page__content">
+                    <h1 class="auth-page__title">Регистрация</h1>
+                    
+                    <?php
+                    // Вывод ошибок и сообщений
+                    if (isset($_GET['registration']) && $_GET['registration'] == 'success') {
+                        echo '<div class="auth-message success">Регистрация успешна! Теперь вы можете войти.</div>';
+                    }
+                    
+                    if (isset($_GET['error'])) {
+                        $errors = array(
+                            'empty_fields' => 'Заполните все поля',
+                            'password_mismatch' => 'Пароли не совпадают',
+                            'email_exists' => 'Email уже зарегистрирован',
+                            'invalid_email' => 'Неверный формат email',
+                            'weak_password' => 'Пароль слишком слабый',
+                            'username_exists' => 'Имя пользователя уже занято'
+                        );
+                        if (isset($errors[$_GET['error']])) {
+                            echo '<div class="auth-message error">' . $errors[$_GET['error']] . '</div>';
+                        }
+                    }
+                    ?>
+
+                    <form class="auth-form" id="register-form" method="post">
+                        <div class="auth-form__group">
+                            <label for="reg_username" class="auth-form__label">Имя пользователя *</label>
+                            <input type="text" id="reg_username" name="username" class="auth-form__input" required>
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                                Если имя занято, система предложит доступный вариант
+                            </small>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="reg_email" class="auth-form__label">Email *</label>
+                            <input type="email" id="reg_email" name="email" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="reg_password" class="auth-form__label">Пароль *</label>
+                            <input type="password" id="reg_password" name="password" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label for="reg_password2" class="auth-form__label">Повторите пароль *</label>
+                            <input type="password" id="reg_password2" name="password2" class="auth-form__input" required>
+                        </div>
+                        
+                        <div class="auth-form__group">
+                            <label class="auth-form__checkbox">
+                                <input type="checkbox" name="agree_terms" required>
+                                <span>Я согласен с <a href="<?php echo get_permalink(get_page_by_path('terms')); ?>" target="_blank">правилами сайта</a></span>
+                            </label>
+                        </div>
+                        
+                        <input type="hidden" name="action" value="custom_registration">
+                        <input type="hidden" name="redirect_to" value="<?php 
+                            echo isset($_GET['redirect_to']) ? esc_url($_GET['redirect_to']) : home_url();
+                        ?>">
+                        <?php wp_nonce_field('custom_registration_nonce', 'registration_nonce'); ?>
+                        
+                        <button type="submit" class="auth-form__button button-black" id="register-submit">Зарегистрироваться</button>
+                        
+                        <!-- Контейнер для сообщений AJAX -->
+                        <div class="auth-form__message" id="register-message" style="display: none;"></div>
+                    </form>
+                    
+                    <div class="auth-page__footer">
+                        <p>Уже есть аккаунт? <a href="<?php echo get_permalink(get_page_by_path('login')); ?>" class="auth-page__link">Войти</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const registerForm = document.getElementById('register-form');
+    const registerSubmit = document.getElementById('register-submit');
+    
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Показываем лоадер
+            registerSubmit.textContent = 'Регистрация...';
+            registerSubmit.disabled = true;
+            
+            // Собираем данные формы
+            const formData = new FormData(registerForm);
+            
+            console.log('Sending registration request...');
+            
+            // AJAX запрос
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network error: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                
+                if (data.success) {
+                    // Успешная регистрация
+                    if (data.data.username && data.data.username !== formData.get('username')) {
+                        window.flsNotifications.success(
+                            'Регистрация успешна! Ваше имя пользователя: ' + data.data.username + '. Перенаправление...',
+                            'Успех'
+                        );
+                    } else {
+                        window.flsNotifications.success(
+                            'Регистрация успешна! Перенаправление...',
+                            'Успех'
+                        );
+                    }
+                    
+                    // Редирект после успешной регистрации
+                    if (data.data.redirect) {
+                        console.log('Redirecting to:', data.data.redirect);
+                        setTimeout(() => {
+                            window.location.href = data.data.redirect;
+                        }, 2000);
+                    } else {
+                        console.log('Redirecting to home');
+                        setTimeout(() => {
+                            window.location.href = '<?php echo home_url(); ?>';
+                        }, 2000);
+                    }
+                    
+                } else {
+                    // Обработка ошибок с разными форматами ответа
+                    let errorMessage = 'Произошла ошибка при регистрации';
+                    
+                    if (data.data && data.data.message) {
+                        // Формат: data.data.message
+                        errorMessage = data.data.message;
+                    } else if (data.message) {
+                        // Формат: data.message
+                        errorMessage = data.message;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        // Формат: data.data как массив ошибок
+                        errorMessage = data.data.join(', ');
+                    } else if (typeof data.data === 'string') {
+                        // Формат: data.data как строка
+                        errorMessage = data.data;
+                    }
+                    
+                    console.log('Error message:', errorMessage);
+                    
+                    // Показываем уведомление об ошибке
+                    window.flsNotifications.error(
+                        errorMessage,
+                        'Ошибка регистрации'
+                    );
+                    
+                    // Возвращаем кнопку в исходное состояние
+                    registerSubmit.textContent = 'Зарегистрироваться';
+                    registerSubmit.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.flsNotifications.error(
+                    'Произошла ошибка сети. Попробуйте еще раз.',
+                    'Ошибка сети'
+                );
+                
+                registerSubmit.textContent = 'Зарегистрироваться';
+                registerSubmit.disabled = false;
+            });
+        });
+    }
+
+    // Проверка доступности имени пользователя в реальном времени
+    const usernameInput = document.getElementById('reg_username');
+    if (usernameInput) {
+        let checkTimeout;
+        
+        usernameInput.addEventListener('input', function() {
+            clearTimeout(checkTimeout);
+            const username = this.value.trim();
+            
+            if (username.length < 3) {
+                return;
+            }
+            
+            checkTimeout = setTimeout(() => {
+                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=check_username&username=' + encodeURIComponent(username)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.available) {
+                        window.flsNotifications.warning(
+                            'Имя пользователя "' + username + '" уже занято. Система предложит доступный вариант при регистрации.',
+                            'Имя занято'
+                        );
+                    }
+                });
+            }, 500);
+        });
+    }
+});
+</script>
+
+<?php get_footer(); ?>
+
+==================================================
+
+путь до файла
+scanner.js
+содержимое файла
+const fs = require('fs');
+const path = require('path');
+
+class FileScanner {
+    constructor(outputFile = 'scan_results.txt') {
+        this.outputFile = outputFile;
+        this.results = [];
+    }
+
+    scanDirectory(dirPath) {
+        try {
+            const items = fs.readdirSync(dirPath);
+            
+            for (const item of items) {
+                const fullPath = path.join(dirPath, item);
+                const stat = fs.statSync(fullPath);
+                
+                if (stat.isDirectory()) {
+                    // Пропускаем системные папки
+                    if (!['node_modules', '.git'].includes(item)) {
+                        this.scanDirectory(fullPath);
+                    }
+                } else if (stat.isFile()) {
+                    this.processFile(fullPath);
+                }
+            }
+        } catch (error) {
+            console.error(`Ошибка: ${dirPath}`);
+        }
+    }
+
+    processFile(filePath) {
+        try {
+            console.log(`Сканирую: ${filePath}`);
+            const content = fs.readFileSync(filePath, 'utf8');
+            
+            this.results.push({
+                path: filePath,
+                content: content
+            });
+            
+        } catch (error) {
+            this.results.push({
+                path: filePath,
+                content: `[ОШИБКА ЧТЕНИЯ: ${error.message}]`
+            });
+        }
+    }
+
+    writeResults() {
+        let outputContent = '';
+        
+        for (const result of this.results) {
+            outputContent += `путь до файла\n${result.path}\n`;
+            outputContent += `содержимое файла\n${result.content}\n`;
+            outputContent += '\n' + '='.repeat(50) + '\n\n';
+        }
+        
+        fs.writeFileSync(this.outputFile, outputContent, 'utf8');
+        console.log(`✅ Готово! Результаты в файле: ${this.outputFile}`);
+    }
+
+    scan(startPath) {
+        console.log(`Начинаю сканирование: ${startPath}`);
+        
+        if (!fs.existsSync(startPath)) {
+            console.error(`❌ Путь не существует: ${startPath}`);
+            return;
+        }
+        
+        const stat = fs.statSync(startPath);
+        
+        if (stat.isDirectory()) {
+            this.scanDirectory(startPath);
+        } else if (stat.isFile()) {
+            this.processFile(startPath);
+        }
+        
+        this.writeResults();
+    }
+}
+
+// Запуск
+const scanner = new FileScanner('результат.txt');
+const scanPath = process.argv[2] || '.';
+scanner.scan(scanPath);
+
+
+==================================================
+
+
+
+==================================================
+

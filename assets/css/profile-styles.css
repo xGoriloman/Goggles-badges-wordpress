@@ -1,0 +1,824 @@
+/* ============================================
+   GNB - Global Styles
+   ============================================ */
+
+:root {
+    --primary-color: #09090b;
+    --secondary-color: #f1f5f9;
+    --accent-color: #64748b;
+    --border-color: #e2e8f0;
+    --text-dark: #09090b;
+    --text-light: #a1a5aa;
+    --bg-light: #f8fafc;
+    --border-radius-lg: 24px;
+    --border-radius-md: 16px;
+    --border-radius-sm: 8px;
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-dark);
+    background-color: #f1f5f9;
+    line-height: 1.5;
+}
+
+/* ============================================
+   Header Styles
+   ============================================ */
+
+.gnb-header {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+    padding: 12px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    margin-bottom: 24px;
+}
+
+.gnb-header__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    min-height: 56px;
+}
+
+.gnb-header__logo {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.gnb-header__title {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    flex: 1;
+}
+
+.gnb-header__controls {
+    display: flex;
+    gap: 8px;
+}
+
+.gnb-btn-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(100, 116, 139, 0.25);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--text-dark);
+    transition: background 0.3s ease;
+}
+
+.gnb-btn-icon:active {
+    background: rgba(100, 116, 139, 0.4);
+}
+
+/* ============================================
+   Container & Grid
+   ============================================ */
+
+.gnb-container {
+    max-width: 384px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.gnb-section {
+    margin-bottom: 24px;
+}
+
+.gnb-section__title {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    color: var(--text-dark);
+}
+
+/* ============================================
+   Card Styles
+   ============================================ */
+
+.gnb-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 12px;
+}
+
+.gnb-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.gnb-card__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.gnb-card__subtitle {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+
+.gnb-card__price {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.gnb-card__meta {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
+.gnb-card__status {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    margin-top: 12px;
+}
+
+.gnb-card__image {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.gnb-card__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ============================================
+   Profile Section
+   ============================================ */
+
+.gnb-profile {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 32px 20px;
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.gnb-profile__avatar {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: var(--bg-light);
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.gnb-profile__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gnb-profile__name {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.gnb-profile__username {
+    font-size: 12px;
+    color: var(--text-light);
+}
+
+/* ============================================
+   Form Styles
+   ============================================ */
+
+.gnb-form-group {
+    margin-bottom: 16px;
+}
+
+.gnb-form-group__label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-light);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.gnb-form-group__input,
+.gnb-form-group__select,
+.gnb-form-group__textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: 16px;
+    color: var(--text-dark);
+    background: white;
+    font-family: inherit;
+    transition: border-color 0.3s ease;
+}
+
+.gnb-form-group__input:focus,
+.gnb-form-group__select:focus,
+.gnb-form-group__textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.1);
+}
+
+.gnb-form-group__textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* ============================================
+   Button Styles
+   ============================================ */
+
+.gnb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: var(--border-radius-lg);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    gap: 8px;
+}
+
+.gnb-btn--primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.gnb-btn--primary:active {
+    opacity: 0.8;
+    transform: scale(0.98);
+}
+
+.gnb-btn--secondary {
+    background: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
+}
+
+.gnb-btn--secondary:active {
+    background: var(--bg-light);
+}
+
+.gnb-btn--small {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.gnb-btn--large {
+    padding: 18px 20px;
+}
+
+/* ============================================
+   Loading & States
+   ============================================ */
+
+.gnb-loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: gnb-spin 0.8s linear infinite;
+}
+
+@keyframes gnb-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (min-width: 640px) {
+    .gnb-container {
+        max-width: 640px;
+        padding: 0 32px;
+    }
+
+    .gnb-header__title {
+        font-size: 20px;
+    }
+
+    .gnb-profile {
+        padding: 40px 32px;
+    }
+
+    .gnb-profile__avatar {
+        width: 128px;
+        height: 128px;
+    }
+
+    .gnb-profile__name {
+        font-size: 20px;
+    }
+}
+
+@media (min-width: 1024px) {
+    html {
+        font-size: 18px;
+    }
+
+    .gnb-container {
+        max-width: 900px;
+        padding: 0 48px;
+    }
+}
+
+/* ============================================
+   WooCommerce Account Page
+   ============================================ */
+
+.woocommerce-account {
+    padding-bottom: 80px;
+}
+
+.woocommerce-MyAccount-navigation {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.woocommerce-MyAccount-navigation ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.woocommerce-MyAccount-navigation li {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.woocommerce-MyAccount-navigation li:last-child {
+    border-bottom: none;
+}
+
+.woocommerce-MyAccount-navigation a {
+    display: block;
+    padding: 14px 16px;
+    color: var(--text-dark);
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.3s ease;
+}
+
+.woocommerce-MyAccount-navigation a:hover,
+.woocommerce-MyAccount-navigation a.is-active {
+    background: var(--bg-light);
+    color: var(--primary-color);
+}
+
+/* ============================================
+   My Orders
+   ============================================ */
+
+.woocommerce-orders-table {
+    border-collapse: collapse;
+}
+
+.woocommerce-orders-table tbody tr {
+    display: block;
+    background: white;
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 12px;
+    overflow: hidden;
+    padding: 0;
+}
+
+.woocommerce-orders-table td {
+    display: block;
+    padding: 12px 16px;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.woocommerce-orders-table td:last-child {
+    border-bottom: none;
+}
+
+.woocommerce-orders-table thead {
+    display: none;
+}
+
+.woocommerce-orders-table .order-number::before {
+    content: 'Заказ: ';
+    font-weight: 600;
+    display: block;
+    font-size: 12px;
+    color: var(--text-light);
+    margin-bottom: 4px;
+}
+
+.woocommerce-orders-table .order-number {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.woocommerce-orders-table .order-date::before {
+    content: 'Дата: ';
+    font-weight: 500;
+}
+
+.woocommerce-orders-table .order-total::before {
+    content: 'Сумма: ';
+    font-weight: 500;
+}
+
+.woocommerce-orders-table .order-status::before {
+    content: 'Статус: ';
+    font-weight: 500;
+}
+
+.woocommerce-orders-table .order-actions::before {
+    content: '';
+}
+
+.order-actions .button {
+    display: inline-block;
+    padding: 8px 12px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius-sm);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ============================================
+   Order Details
+   ============================================ */
+
+.woocommerce-order {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.woocommerce-order-details {
+    margin-bottom: 24px;
+}
+
+.woocommerce-order-details h2 {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    color: var(--text-dark);
+}
+
+.woocommerce-order-details__field {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+}
+
+.woocommerce-order-details__field:last-child {
+    border-bottom: none;
+}
+
+.woocommerce-order-details__label {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.woocommerce-order-details__value {
+    color: var(--text-light);
+    text-align: right;
+}
+
+/* ============================================
+   Checkout Page
+   ============================================ */
+
+.woocommerce-checkout {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+}
+
+.form-row {
+    display: block;
+    margin-bottom: 16px;
+}
+
+.form-row.form-row-first,
+.form-row.form-row-last {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 16px;
+}
+
+@media (min-width: 640px) {
+    .form-row.form-row-first {
+        width: 48%;
+        margin-right: 4%;
+        display: inline-block;
+    }
+
+    .form-row.form-row-last {
+        width: 48%;
+        display: inline-block;
+    }
+}
+
+.woocommerce-checkout label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 8px;
+}
+
+.woocommerce-checkout input[type="text"],
+.woocommerce-checkout input[type="email"],
+.woocommerce-checkout input[type="tel"],
+.woocommerce-checkout select,
+.woocommerce-checkout textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: 16px;
+    font-family: inherit;
+    transition: border-color 0.3s ease;
+}
+
+.woocommerce-checkout input[type="text"]:focus,
+.woocommerce-checkout input[type="email"]:focus,
+.woocommerce-checkout input[type="tel"]:focus,
+.woocommerce-checkout select:focus,
+.woocommerce-checkout textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.1);
+}
+
+#billing_address_1_field label,
+#billing_city_field label {
+    display: block;
+}
+
+/* ============================================
+   Billing & Shipping Details
+   ============================================ */
+
+.woocommerce-billing-fields,
+.woocommerce-shipping-fields {
+    margin-bottom: 24px;
+}
+
+.woocommerce-billing-fields h3,
+.woocommerce-shipping-fields h3 {
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    color: var(--text-dark);
+}
+
+/* ============================================
+   CDEK Integration
+   ============================================ */
+
+.gnb-cdek-points {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.gnb-cdek-points__list {
+    list-style: none;
+}
+
+.gnb-cdek-points__item {
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.gnb-cdek-points__item:hover {
+    border-color: var(--primary-color);
+    background: var(--bg-light);
+}
+
+.gnb-cdek-points__item.active {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+}
+
+.gnb-cdek-points__item.active .gnb-cdek-points__address,
+.gnb-cdek-points__item.active .gnb-cdek-points__info {
+    color: white;
+}
+
+.gnb-cdek-points__address {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+}
+
+.gnb-cdek-points__info {
+    font-size: 12px;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+.gnb-cdek-points__info span {
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* ============================================
+   Order Review
+   ============================================ */
+
+.woocommerce-checkout-review-order {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    padding: 20px;
+}
+
+.woocommerce-checkout-review-order h3 {
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    color: var(--text-dark);
+}
+
+.woocommerce-review-order-table {
+    width: 100%;
+    margin-bottom: 16px;
+    border-collapse: collapse;
+}
+
+.woocommerce-review-order-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 0;
+}
+
+.woocommerce-review-order-table th,
+.woocommerce-review-order-table td {
+    padding: 12px 0;
+    text-align: left;
+    font-size: 14px;
+}
+
+.woocommerce-review-order-table th {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.woocommerce-review-order-table td {
+    color: var(--text-light);
+}
+
+.order-total tr {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.order-total .total {
+    color: var(--primary-color);
+}
+
+/* ============================================
+   Alerts & Messages
+   ============================================ */
+
+.woocommerce-error,
+.woocommerce-info,
+.woocommerce-message {
+    background: white;
+    border-left: 4px solid var(--accent-color);
+    padding: 16px;
+    border-radius: var(--border-radius-md);
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+
+.woocommerce-error {
+    border-left-color: #dc2626;
+    color: #dc2626;
+}
+
+.woocommerce-message {
+    border-left-color: #16a34a;
+    color: #16a34a;
+}
+
+.woocommerce-info {
+    border-left-color: #0ea5e9;
+    color: #0ea5e9;
+}
+
+/* ============================================
+   Pagination
+   ============================================ */
+
+.woocommerce-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 24px 0;
+    list-style: none;
+}
+
+.woocommerce-pagination li {
+    display: inline-block;
+}
+
+.woocommerce-pagination a,
+.woocommerce-pagination span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    text-decoration: none;
+    color: var(--text-dark);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.woocommerce-pagination a:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.woocommerce-pagination .current {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
