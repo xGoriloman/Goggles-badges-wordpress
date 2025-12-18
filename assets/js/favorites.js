@@ -70,3 +70,4 @@ jQuery(document).ready(function ($) {
     return $('body').hasClass('logged-in');
   }
 });
+

@@ -229,34 +229,6 @@
             </a>
         </div>
 
-        <!-- Account Navigation -->
-        <div class="gnb-section" style="margin-top: 32px;">
-            <nav class="woocommerce-MyAccount-navigation">
-                <ul>
-                    <li>
-                        <a href="<?php echo esc_url(wc_get_account_endpoint_url('orders')); ?>" class="<?php echo is_wc_endpoint_url('orders') ? 'is-active' : ''; ?>">
-                            📦 Мои заказы
-                        </a>
-                    </li>
-                    <li>
-                        <a href="<?php echo esc_url(wc_get_account_endpoint_url('edit-address')); ?>" class="<?php echo is_wc_endpoint_url('edit-address') ? 'is-active' : ''; ?>">
-                            📍 Адреса доставки
-                        </a>
-                    </li>
-                    <li>
-                        <a href="<?php echo esc_url(wc_get_account_endpoint_url('edit-account')); ?>" class="<?php echo is_wc_endpoint_url('edit-account') ? 'is-active' : ''; ?>">
-                            ⚙️ Мой аккаунт
-                        </a>
-                    </li>
-                    <li>
-                        <a href="<?php echo esc_url(wp_logout_url(home_url())); ?>">
-                            🚪 Выход
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-        </div>
-
     <?php endif; ?>
 
 </div>

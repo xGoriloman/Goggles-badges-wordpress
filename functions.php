@@ -130,7 +130,8 @@ function theme_scripts() {
     }
 
     if (is_checkout()) {
-        wp_enqueue_style('checkout-css', get_template_directory_uri() . '/assets/css/checkout.css', array(), '8.0.0');        
+        wp_enqueue_style('checkout-css', get_template_directory_uri() . '/assets/css/checkout.css', array(), '8.0.0');   
+        wp_enqueue_script('checkout-scripts', get_template_directory_uri() . '/assets/js/checkout.js', array('jquery'), '1.0.0', true);     
     }
 
     if (is_account_page()) {
@@ -1637,604 +1638,6 @@ function logout_redirect() {
     exit;
 }
 
-//====================== PROFILE @ ============================================================================================
-function gnb_get_cdek_points($city_code = null) {
-    if (!class_exists('CDEK_Shipping')) {
-        return array();
-    }
-    
-    try {
-        $cache_key = 'gnb_cdek_points_' . ($city_code ?: '2728');
-        $points = get_transient($cache_key);
-        
-        if (false === $points) {
-            $cdek = new CDEK_Shipping();
-            $points = $cdek->get_pvz_list($city_code);
-            
-            // Кэш на 24 часа
-            set_transient($cache_key, $points, 86400);
-        }
-        
-        return $points ?: array();
-    } catch (Exception $e) {
-        error_log('GNB CDEK Error: ' . $e->getMessage());
-        return array();
-    }
-}
-
-// Сохранение выбранного пункта выдачи в сессию
-function gnb_ajax_save_cdek_point() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    if (!isset($_POST['point_id'])) {
-        wp_send_json_error('Point ID not provided');
-    }
-    
-    $point_id = sanitize_text_field($_POST['point_id']);
-    
-    if (is_user_logged_in()) {
-        update_user_meta(get_current_user_id(), '_cdek_point', $point_id);
-    } else {
-        WC()->session->set('chosen_cdek_point', $point_id);
-    }
-    
-    wp_send_json_success(array('point_id' => $point_id));
-}
-add_action('wp_ajax_gnb_save_cdek_point', 'gnb_ajax_save_cdek_point');
-add_action('wp_ajax_nopriv_gnb_save_cdek_point', 'gnb_ajax_save_cdek_point');
-
-// Форматирование адреса доставки
-function gnb_format_shipping_address($address) {
-    $parts = array();
-    
-    if (!empty($address['first_name'])) {
-        $parts[] = $address['first_name'];
-    }
-    if (!empty($address['last_name'])) {
-        $parts[] = $address['last_name'];
-    }
-    if (!empty($address['address_1'])) {
-        $parts[] = $address['address_1'];
-    }
-    if (!empty($address['city'])) {
-        $parts[] = $address['city'];
-    }
-    
-    return implode(', ', $parts);
-}
-
-// Получение информации о заказе для профиля
-function gnb_get_user_orders($user_id, $limit = 10) {
-    if (!function_exists('wc_get_orders')) {
-        return array();
-    }
-    
-    $args = array(
-        'customer_id' => $user_id,
-        'limit' => $limit,
-        'orderby' => 'date',
-        'order' => 'DESC'
-    );
-    
-    return wc_get_orders($args);
-}
-
-// Форматирование статуса заказа
-function gnb_format_order_status($status) {
-    $status = str_replace('wc-', '', $status);
-    
-    $statuses = array(
-        'pending' => 'Ожидание',
-        'processing' => 'В обработке',
-        'on-hold' => 'На удержании',
-        'completed' => 'Уже у вас',
-        'cancelled' => 'Отменено',
-        'refunded' => 'Возвращено',
-        'failed' => 'Ошибка',
-        'draft' => 'Черновик'
-    );
-    
-    return isset($statuses[$status]) ? $statuses[$status] : ucfirst($status);
-}
-
-// Получение города по коду CDEK
-function gnb_get_city_by_code($code) {
-    $cities = array(
-        '2728' => 'Москва',
-        '3580' => 'Санкт-Петербург',
-        '4711' => 'Казань',
-        '4974' => 'Новосибирск',
-        '6925' => 'Екатеринбург',
-        '7677' => 'Владивосток'
-    );
-    
-    return isset($cities[$code]) ? $cities[$code] : 'Россия';
-}
-
-// Защита от раздельного документа в админке
-function gnb_admin_settings_page() {
-    if (!current_user_can('manage_options')) {
-        return;
-    }
-    
-    if (isset($_POST['gnb_cdek_settings_nonce'])) {
-        check_admin_referer('gnb_cdek_settings_nonce');
-        
-        if (isset($_POST['cdek_api_key'])) {
-            update_option('gnb_cdek_api_key', sanitize_text_field($_POST['cdek_api_key']));
-        }
-        if (isset($_POST['cdek_account'])) {
-            update_option('gnb_cdek_account', sanitize_text_field($_POST['cdek_account']));
-        }
-        if (isset($_POST['cdek_password'])) {
-            update_option('gnb_cdek_password', sanitize_text_field($_POST['cdek_password']));
-        }
-        
-        echo '<div class="notice notice-success"><p>Настройки сохранены!</p></div>';
-    }
-    
-    $api_key = get_option('gnb_cdek_api_key');
-    $account = get_option('gnb_cdek_account');
-    $password = get_option('gnb_cdek_password');
-    
-    ?>
-    <div class="wrap">
-        <h1>Настройки CDEK</h1>
-        <form method="post">
-            <?php wp_nonce_field('gnb_cdek_settings_nonce'); ?>
-            <table class="form-table">
-                <tr>
-                    <th><label for="cdek_api_key">API Key</label></th>
-                    <td><input type="text" id="cdek_api_key" name="cdek_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text"></td>
-                </tr>
-                <tr>
-                    <th><label for="cdek_account">Account</label></th>
-                    <td><input type="text" id="cdek_account" name="cdek_account" value="<?php echo esc_attr($account); ?>" class="regular-text"></td>
-                </tr>
-                <tr>
-                    <th><label for="cdek_password">Password</label></th>
-                    <td><input type="password" id="cdek_password" name="cdek_password" value="<?php echo esc_attr($password); ?>" class="regular-text"></td>
-                </tr>
-            </table>
-            <?php submit_button(); ?>
-        </form>
-    </div>
-    <?php
-}
-
-// Регистрация страницы настроек
-function gnb_register_admin_menu() {
-    add_menu_page(
-        'CDEK Настройки',
-        'CDEK',
-        'manage_options',
-        'gnb-cdek-settings',
-        'gnb_admin_settings_page'
-    );
-}
-add_action('admin_menu', 'gnb_register_admin_menu');
-
-// Вспомогательная функция для получения телефона пользователя
-function gnb_get_user_phone($user_id) {
-    $user = get_userdata($user_id);
-    return get_user_meta($user_id, 'billing_phone', true) ?: '';
-}
-
-// Форматирование телефона
-function gnb_format_phone($phone) {
-    $phone = preg_replace('/\D/', '', $phone);
-    
-    if (strlen($phone) === 11) {
-        return '+' . substr($phone, 0, 1) . ' (' . substr($phone, 1, 3) . ') ' . 
-               substr($phone, 4, 3) . '-' . substr($phone, 7, 2) . '-' . substr($phone, 9);
-    }
-    
-    return '+' . $phone;
-}
-// ===================================
-// 5. Админ Панель
-// ===================================
-
-/**
- * Страница настроек CDEK в админке
- */
-function gnb_admin_cdek_settings() {
-    if (!current_user_can('manage_options')) {
-        return;
-    }
-    
-    if (isset($_POST['gnb_cdek_nonce'])) {
-        check_admin_referer('gnb_cdek_nonce', 'gnb_cdek_nonce');
-        
-        if (isset($_POST['cdek_api_key'])) {
-            update_option('gnb_cdek_api_key', sanitize_text_field($_POST['cdek_api_key']));
-        }
-        if (isset($_POST['cdek_account'])) {
-            update_option('gnb_cdek_account', sanitize_text_field($_POST['cdek_account']));
-        }
-        if (isset($_POST['cdek_password'])) {
-            update_option('gnb_cdek_password', sanitize_text_field($_POST['cdek_password']));
-        }
-        
-        echo '<div class="notice notice-success"><p>Настройки сохранены!</p></div>';
-    }
-    
-    $api_key = get_option('gnb_cdek_api_key');
-    $account = get_option('gnb_cdek_account');
-    $password = get_option('gnb_cdek_password');
-    ?>
-    
-    <div class="wrap">
-        <h1>⚙️ Настройки CDEK</h1>
-        
-        <form method="post" style="background: white; padding: 20px; max-width: 500px; border-radius: 8px; margin-top: 20px;">
-            <?php wp_nonce_field('gnb_cdek_nonce', 'gnb_cdek_nonce'); ?>
-            
-            <table class="form-table">
-                <tr>
-                    <th scope="row"><label>API Key</label></th>
-                    <td>
-                        <input type="text" name="cdek_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text">
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label>Account</label></th>
-                    <td>
-                        <input type="text" name="cdek_account" value="<?php echo esc_attr($account); ?>" class="regular-text">
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label>Password</label></th>
-                    <td>
-                        <input type="password" name="cdek_password" value="<?php echo esc_attr($password); ?>" class="regular-text">
-                    </td>
-                </tr>
-            </table>
-            
-            <?php submit_button('Сохранить'); ?>
-        </form>
-    </div>
-    
-    <?php
-}
-
-/**
- * Регистрация меню админки
- */
-add_action('admin_menu', function() {
-    add_menu_page(
-        'CDEK Settings',
-        '📦 CDEK',
-        'manage_options',
-        'gnb-cdek',
-        'gnb_admin_cdek_settings',
-        'dashicons-location'
-    );
-});
-//======================  ============================================================================================
-/**
- * GNB CDEK AJAX Handlers
- * Обработчики AJAX запросов для CDEK
- */
-
-// Получение пунктов выдачи CDEK
-add_action('wp_ajax_gnb_get_cdek_points', 'gnb_ajax_get_cdek_points');
-add_action('wp_ajax_nopriv_gnb_ajax_get_cdek_points', 'gnb_ajax_get_cdek_points');
-
-function gnb_ajax_get_cdek_points() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    $city = isset($_POST['city']) ? sanitize_text_field($_POST['city']) : '2728';
-    
-    $points = gnb_get_cdek_points($city);
-    
-    wp_send_json_success($points);
-}
-
-// Поиск городов по названию
-add_action('wp_ajax_gnb_search_cities', 'gnb_ajax_search_cities');
-add_action('wp_ajax_nopriv_gnb_search_cities', 'gnb_ajax_search_cities');
-
-function gnb_ajax_search_cities() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
-    
-    if (strlen($search) < 2) {
-        wp_send_json_error('Минимум 2 символа');
-    }
-    
-    // Получение городов из CDEK
-    $cache_key = 'gnb_cdek_cities_' . md5($search);
-    $cities = get_transient($cache_key);
-    
-    if (false === $cities) {
-        $cdek_api = new CDEK_API();
-        $cities = $cdek_api->search_cities(array(
-            'q' => $search
-        ));
-        
-        set_transient($cache_key, $cities, DAY_IN_SECONDS);
-    }
-    
-    $formatted_cities = array();
-    
-    if (!empty($cities)) {
-        foreach ($cities as $city) {
-            $formatted_cities[] = array(
-                'id' => $city['code'],
-                'name' => $city['name'],
-                'region' => isset($city['region']) ? $city['region'] : ''
-            );
-        }
-    }
-    
-    wp_send_json_success($formatted_cities);
-}
-
-// Обновление стоимости доставки
-add_action('wp_ajax_gnb_update_shipping_cost', 'gnb_ajax_update_shipping_cost');
-add_action('wp_ajax_nopriv_gnb_update_shipping_cost', 'gnb_ajax_update_shipping_cost');
-
-function gnb_ajax_update_shipping_cost() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    if (!WC()->cart) {
-        wp_send_json_error('Корзина не найдена');
-    }
-    
-    $to_city = isset($_POST['to_city']) ? sanitize_text_field($_POST['to_city']) : '';
-    $weight = WC()->cart->get_cart_contents_weight();
-    
-    if (empty($to_city) || $weight === 0) {
-        wp_send_json_error('Неполные данные');
-    }
-    
-    // Расчет стоимости доставки через CDEK API
-    $cdek_api = new CDEK_API();
-    $cost = $cdek_api->calculate_tariff(array(
-        'from_location' => array('code' => 2728), // From Moscow
-        'to_location' => array('code' => $to_city),
-        'packages' => array(
-            array(
-                'weight' => $weight * 1000, // to grams
-                'length' => 10,
-                'width' => 10,
-                'height' => 10
-            )
-        ),
-        'tariff_code' => 137 // CDEK standard delivery
-    ));
-    
-    if ($cost) {
-        wp_send_json_success(array(
-            'cost' => $cost,
-            'formatted' => wc_price($cost)
-        ));
-    }
-    
-    wp_send_json_error('Не удалось рассчитать стоимость');
-}
-
-// Сохранение пункта выдачи пользователем
-add_action('wp_ajax_gnb_save_user_cdek_point', 'gnb_ajax_save_user_cdek_point');
-
-function gnb_ajax_save_user_cdek_point() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Не авторизованы');
-    }
-    
-    $point_data = isset($_POST['point']) ? json_decode(stripslashes($_POST['point']), true) : array();
-    
-    if (empty($point_data['code'])) {
-        wp_send_json_error('Неверные данные пункта');
-    }
-    
-    $user_id = get_current_user_id();
-    $points = get_user_meta($user_id, 'cdek_points', true);
-    
-    if (!is_array($points)) {
-        $points = array();
-    }
-    
-    // Добавление новой точки или обновление существующей
-    $point_exists = false;
-    
-    foreach ($points as $key => $point) {
-        if ($point['code'] === $point_data['code']) {
-            $points[$key] = $point_data;
-            $point_exists = true;
-            break;
-        }
-    }
-    
-    if (!$point_exists) {
-        $points[] = $point_data;
-    }
-    
-    // Максимум 5 сохраненных точек
-    if (count($points) > 5) {
-        array_shift($points);
-    }
-    
-    update_user_meta($user_id, 'cdek_points', $points);
-    
-    wp_send_json_success(array(
-        'message' => 'Пункт выдачи сохранен',
-        'points' => $points
-    ));
-}
-
-// Удаление пункта выдачи
-add_action('wp_ajax_gnb_delete_user_cdek_point', 'gnb_ajax_delete_user_cdek_point');
-
-function gnb_ajax_delete_user_cdek_point() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Не авторизованы');
-    }
-    
-    $point_code = isset($_POST['point_code']) ? sanitize_text_field($_POST['point_code']) : '';
-    
-    if (empty($point_code)) {
-        wp_send_json_error('Код пункта не указан');
-    }
-    
-    $user_id = get_current_user_id();
-    $points = get_user_meta($user_id, 'cdek_points', true);
-    
-    if (!is_array($points)) {
-        wp_send_json_error('Точек не найдено');
-    }
-    
-    $points = array_filter($points, function($point) use ($point_code) {
-        return $point['code'] !== $point_code;
-    });
-    
-    update_user_meta($user_id, 'cdek_points', array_values($points));
-    
-    wp_send_json_success(array(
-        'message' => 'Пункт выдачи удален'
-    ));
-}
-
-// Трекинг заказа
-add_action('wp_ajax_gnb_track_order', 'gnb_ajax_track_order');
-add_action('wp_ajax_nopriv_gnb_track_order', 'gnb_ajax_track_order');
-
-function gnb_ajax_track_order() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
-    
-    if (!$order_id) {
-        wp_send_json_error('ID заказа не указан');
-    }
-    
-    $order = wc_get_order($order_id);
-    
-    if (!$order) {
-        wp_send_json_error('Заказ не найден');
-    }
-    
-    // Проверка прав доступа
-    if ($order->get_user_id() !== get_current_user_id() && !current_user_can('manage_orders')) {
-        wp_send_json_error('Доступ запрещен');
-    }
-    
-    // Получение информации о доставке
-    $cdek_tracking = get_post_meta($order_id, 'cdek_tracking_number', true);
-    
-    $tracking_data = array(
-        'order_id' => $order_id,
-        'order_status' => $order->get_status(),
-        'order_status_formatted' => gnb_format_order_status($order->get_status()),
-        'shipping_method' => $order->get_shipping_method(),
-        'cdek_tracking' => $cdek_tracking
-    );
-    
-    // Если есть номер трекинга, получить данные с CDEK
-    if ($cdek_tracking) {
-        $cdek_api = new CDEK_API();
-        $tracking_info = $cdek_api->get_tracking_info(array(
-            'dispatch_number' => $cdek_tracking
-        ));
-        
-        if ($tracking_info) {
-            $tracking_data['tracking_info'] = $tracking_info;
-        }
-    }
-    
-    wp_send_json_success($tracking_data);
-}
-
-// Экспорт заказа в CDEK
-add_action('wp_ajax_gnb_export_to_cdek', 'gnb_ajax_export_to_cdek');
-
-function gnb_ajax_export_to_cdek() {
-    check_ajax_referer('gnb_nonce', 'nonce');
-    
-    if (!current_user_can('manage_orders')) {
-        wp_send_json_error('Доступ запрещен');
-    }
-    
-    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
-    
-    if (!$order_id) {
-        wp_send_json_error('ID заказа не указан');
-    }
-    
-    $order = wc_get_order($order_id);
-    
-    if (!$order) {
-        wp_send_json_error('Заказ не найден');
-    }
-    
-    // Подготовка данных для CDEK
-    $shipping_address = $order->get_shipping_address_1();
-    $to_city = get_post_meta($order_id, 'cdek_city_code', true);
-    $pvz_code = get_post_meta($order_id, 'cdek_pvz_code', true);
-    
-    $cdek_order = array(
-        'number' => 'ORD-' . $order_id,
-        'shipment_point' => '2728',
-        'delivery_point' => $pvz_code,
-        'recipient' => array(
-            'name' => $order->get_shipping_first_name() . ' ' . $order->get_shipping_last_name(),
-            'phones' => array(
-                array(
-                    'number' => $order->get_billing_phone()
-                )
-            )
-        ),
-        'packages' => array(
-            array(
-                'number' => 'PKG-' . $order_id,
-                'weight' => (int)($order->get_cart_contents_weight() * 1000),
-                'items' => gnb_prepare_cdek_items($order)
-            )
-        )
-    );
-    
-    // Отправка заказа в CDEK
-    $cdek_api = new CDEK_API();
-    $result = $cdek_api->create_order($cdek_order);
-    
-    if ($result && isset($result['uuid'])) {
-        update_post_meta($order_id, 'cdek_uuid', $result['uuid']);
-        wp_send_json_success(array(
-            'message' => 'Заказ отправлен в CDEK',
-            'uuid' => $result['uuid']
-        ));
-    }
-    
-    wp_send_json_error('Не удалось отправить заказ в CDEK');
-}
-
-// Вспомогательная функция для подготовки товаров
-function gnb_prepare_cdek_items($order) {
-    $items = array();
-    
-    foreach ($order->get_items() as $item) {
-        $product = $item->get_product();
-        
-        $items[] = array(
-            'name' => $item->get_name(),
-            'ware_key' => $product->get_id(),
-            'payment' => array(
-                'value' => (int)($item->get_total() * 100)
-            ),
-            'amount' => $item->get_quantity(),
-            'weight' => (int)($product->get_weight() * 1000)
-        );
-    }
-    
-    return $items;
-}
-
 
 //====================== RESET PASSWORD ============================================================================================
 // AJAX обработчик запроса сброса пароля
@@ -2584,21 +1987,311 @@ function cart_sidebar_scripts() {
 
 //====================== CHECKOUT ============================================================================================
 
+add_filter('woocommerce_checkout_fields', 'ios_checkout_customize_fields');
+function ios_checkout_customize_fields($fields) {
+    
+    // Изменяем плейсхолдеры для полей
+    if (isset($fields['billing'])) {
+        $fields['billing']['billing_first_name']['placeholder'] = 'Иван';
+        $fields['billing']['billing_last_name']['placeholder'] = 'Иванов';
+        $fields['billing']['billing_phone']['placeholder'] = '+7 (999) 999-99-99';
+        $fields['billing']['billing_email']['placeholder'] = 'example@mail.com';
+        $fields['billing']['billing_address_1']['placeholder'] = 'Улица, дом';
+        $fields['billing']['billing_address_2']['placeholder'] = 'Квартира, корпус';
+        $fields['billing']['billing_city']['placeholder'] = 'Город';
+        $fields['billing']['billing_state']['placeholder'] = 'Область';
+        $fields['billing']['billing_postcode']['placeholder'] = '123456';
+        
+        // Изменяем лейблы
+        $fields['billing']['billing_first_name']['label'] = 'Имя';
+        $fields['billing']['billing_last_name']['label'] = 'Фамилия';
+        $fields['billing']['billing_phone']['label'] = 'Номер телефона';
+        $fields['billing']['billing_address_1']['label'] = 'Адрес';
+        $fields['billing']['billing_address_2']['label'] = 'Квартира, корпус';
+        $fields['billing']['billing_city']['label'] = 'Населенный пункт';
+        $fields['billing']['billing_country']['label'] = 'Страна';
+        $fields['billing']['billing_state']['label'] = 'Область / район';
+        $fields['billing']['billing_postcode']['label'] = 'Почтовый индекс';
+        
+        // Убираем ненужные поля
+        unset($fields['billing']['billing_company']);
+    }
+    
+    // Изменяем порядок полей
+    if (isset($fields['billing'])) {
+        $fields['billing']['billing_first_name']['priority'] = 10;
+        $fields['billing']['billing_last_name']['priority'] = 20;
+        $fields['billing']['billing_phone']['priority'] = 30;
+        $fields['billing']['billing_address_1']['priority'] = 40;
+        $fields['billing']['billing_address_2']['priority'] = 50;
+        $fields['billing']['billing_city']['priority'] = 60;
+        $fields['billing']['billing_country']['priority'] = 70;
+        $fields['billing']['billing_state']['priority'] = 80;
+        $fields['billing']['billing_postcode']['priority'] = 90;
+        $fields['billing']['billing_email']['priority'] = 100;
+    }
+    
+    return $fields;
+}
 
-// Полностью убираем form-row из всех полей WooCommerce
-add_filter('woocommerce_form_field_args', 'remove_form_row_class', 10, 3);
-function remove_form_row_class($args, $key, $value) {
-    // Убираем form-row из классов
-    $args['class'] = array_diff($args['class'], ['form-row']);
-    
-    // Добавляем свои классы
-    $args['class'] = array_merge($args['class'], ['checkout__form-row', 'my-custom-class']);
-    $args['input_class'] = array_merge($args['input_class'], ['checkout__form-input', 'my-input-class']);
-    $args['label_class'] = array_merge($args['label_class'], ['my-label-class']);
-    
+// ========== ДОБАВЛЕНИЕ КЛАССОВ К ПОЛЯМ ==========
+add_filter('woocommerce_form_field_args', 'ios_checkout_field_args', 10, 3);
+function ios_checkout_field_args($args, $key, $value) {
+    if (is_checkout()) {
+        $args['class'][] = 'ios-form-field';
+        $args['input_class'][] = 'ios-form-input';
+        $args['label_class'][] = 'ios-form-label';
+    }
     return $args;
 }
 
+// ========== BODY CLASS ==========
+add_filter('body_class', 'ios_checkout_body_class');
+function ios_checkout_body_class($classes) {
+    if (is_checkout()) {
+        $classes[] = 'ios-checkout-page';
+    }
+    return $classes;
+}
+
+// ========== ИЗМЕНЕНИЕ ТЕКСТА КНОПКИ ==========
+add_filter('woocommerce_order_button_text', 'ios_checkout_button_text');
+function ios_checkout_button_text() {
+    return 'Оформить заказ';
+}
+
+// ========== КАСТОМНЫЕ СТИЛИ ДЛЯ УВЕДОМЛЕНИЙ ==========
+add_action('wp_head', 'ios_checkout_custom_styles');
+function ios_checkout_custom_styles() {
+    if (is_checkout() && !is_wc_endpoint_url('order-received')) {
+        ?>
+        <style>
+        /* Дополнительные стили для уведомлений */
+        .woocommerce-NoticeGroup {
+            position: fixed;
+            top: 170px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 361px;
+            width: calc(100% - 32px);
+            z-index: 1001;
+        }
+        </style>
+        <?php
+    }
+}
+
+// ========== СКРИПТЫ ДЛЯ СТРАНИЦЫ БЛАГОДАРНОСТИ ==========
+add_action('woocommerce_thankyou', 'ios_checkout_thankyou_scripts');
+function ios_checkout_thankyou_scripts($order_id) {
+    ?>
+    <script>
+    jQuery(document).ready(function($) {
+        // Показываем модальное окно успеха на странице благодарности
+        setTimeout(function() {
+            if ($('#iosSuccessModal').length) {
+                $('#iosSuccessModal').addClass('active');
+            }
+        }, 500);
+    });
+    </script>
+    <style>
+    /* Скрываем стандартное содержимое страницы благодарности */
+    .woocommerce-order {
+        display: none;
+    }
+    </style>
+    <?php
+}
+
+// ========== AJAX ОБНОВЛЕНИЕ CHECKOUT ==========
+add_action('wp_footer', 'ios_checkout_ajax_scripts');
+function ios_checkout_ajax_scripts() {
+    if (is_checkout() && !is_wc_endpoint_url('order-received')) {
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            // Обновление checkout при изменении доставки
+            $(document.body).on('updated_checkout', function() {
+                console.log('Checkout updated');
+                // Можно добавить дополнительную логику
+            });
+            
+            // Обработка успешного заказа
+            $(document.body).on('checkout_place_order_success', function(e, result) {
+                if (result && result.result === 'success') {
+                    $('#iosLoading').addClass('active');
+                    return true;
+                }
+            });
+            
+            // Обработка ошибок
+            $(document.body).on('checkout_error', function() {
+                $('#iosLoading').removeClass('active');
+                
+                // Прокручиваем к первой ошибке
+                if ($('.woocommerce-error').length) {
+                    $('html, body').animate({
+                        scrollTop: $('.woocommerce-error').offset().top - 200
+                    }, 500);
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+}
+
+// ========== НАСТРОЙКА CDEK ==========
+// Если используется плагин CDEK, можно добавить дополнительные настройки
+add_filter('woocommerce_shipping_method_title', 'ios_checkout_shipping_method_title', 10, 2);
+function ios_checkout_shipping_method_title($title, $method) {
+    // Можно изменить отображение названий методов доставки
+    return $title;
+}
+
+// ========== УДАЛЕНИЕ НЕНУЖНЫХ ПОЛЕЙ ИЗ CHECKOUT ==========
+add_filter('woocommerce_checkout_fields', 'ios_checkout_remove_fields');
+function ios_checkout_remove_fields($fields) {
+    // Удаляем поле order comments (можно оставить, если нужно)
+    // unset($fields['order']['order_comments']);
+    
+    return $fields;
+}
+
+// ========== ВАЛИДАЦИЯ ТЕЛЕФОНА ==========
+add_action('woocommerce_checkout_process', 'ios_checkout_phone_validation');
+function ios_checkout_phone_validation() {
+    $phone = isset($_POST['billing_phone']) ? $_POST['billing_phone'] : '';
+    
+    // Удаляем все символы кроме цифр
+    $phone_digits = preg_replace('/[^0-9]/', '', $phone);
+    
+    // Проверяем длину (должно быть 11 цифр для России)
+    if (strlen($phone_digits) < 11) {
+        wc_add_notice('Пожалуйста, введите корректный номер телефона', 'error');
+    }
+}
+
+// ========== СОХРАНЕНИЕ ДОПОЛНИТЕЛЬНЫХ ДАННЫХ ==========
+add_action('woocommerce_checkout_update_order_meta', 'ios_checkout_save_custom_data');
+function ios_checkout_save_custom_data($order_id) {
+    // Здесь можно сохранить дополнительные данные заказа
+    // Например, выбранный ПВЗ CDEK
+    if (isset($_POST['cdek_pvz'])) {
+        update_post_meta($order_id, '_cdek_pvz', sanitize_text_field($_POST['cdek_pvz']));
+    }
+}
+
+// ========== ОТОБРАЖЕНИЕ ДАННЫХ В АДМИНКЕ ==========
+add_action('woocommerce_admin_order_data_after_shipping_address', 'ios_checkout_display_custom_data');
+function ios_checkout_display_custom_data($order) {
+    $cdek_pvz = get_post_meta($order->get_id(), '_cdek_pvz', true);
+    
+    if ($cdek_pvz) {
+        echo '<p><strong>ПВЗ CDEK:</strong> ' . esc_html($cdek_pvz) . '</p>';
+    }
+}
+
+// ========== НАСТРОЙКА EMAIL УВЕДОМЛЕНИЙ ==========
+add_filter('woocommerce_email_order_meta_fields', 'ios_checkout_email_order_meta');
+function ios_checkout_email_order_meta($fields) {
+    // Добавляем дополнительные поля в email уведомления
+    $fields[] = array(
+        'label' => 'ПВЗ CDEK',
+        'value' => get_post_meta($GLOBALS['order']->get_id(), '_cdek_pvz', true)
+    );
+    
+    return $fields;
+}
+
+// ========== ОТКЛЮЧЕНИЕ АВТОЗАПОЛНЕНИЯ ДЛЯ НЕКОТОРЫХ ПОЛЕЙ ==========
+add_filter('woocommerce_checkout_fields', 'ios_checkout_disable_autocomplete');
+function ios_checkout_disable_autocomplete($fields) {
+    // Отключаем автозаполнение для email
+    if (isset($fields['billing']['billing_email'])) {
+        $fields['billing']['billing_email']['autocomplete'] = 'off';
+    }
+    
+    return $fields;
+}
+
+// ========== РЕДИРЕКТ ПОСЛЕ УСПЕШНОГО ЗАКАЗА ==========
+add_filter('woocommerce_get_return_url', 'ios_checkout_custom_return_url', 10, 2);
+function ios_checkout_custom_return_url($return_url, $order) {
+    // Можно изменить URL перенаправления после заказа
+    return $return_url;
+}
+
+// ========== КАСТОМИЗАЦИЯ СТРАНИЦЫ БЛАГОДАРНОСТИ ==========
+add_action('woocommerce_thankyou', 'ios_checkout_thankyou_content', 1);
+function ios_checkout_thankyou_content($order_id) {
+    if (!$order_id) {
+        return;
+    }
+    
+    $order = wc_get_order($order_id);
+    
+    // Можно добавить кастомный контент на страницу благодарности
+    ?>
+    <div class="ios-thankyou-content" style="display: none;">
+        <h2>Спасибо за ваш заказ!</h2>
+        <p>Номер заказа: <?php echo $order->get_order_number(); ?></p>
+    </div>
+    <?php
+}
+
+// ========== ИЗМЕНЕНИЕ ФОРМАТА НОМЕРА ЗАКАЗА ==========
+add_filter('woocommerce_order_number', 'ios_checkout_custom_order_number', 10, 2);
+function ios_checkout_custom_order_number($order_number, $order) {
+    // Можно изменить формат номера заказа
+    // Например: return 'GB-' . $order_number;
+    return $order_number;
+}
+
+// ========== ДОБАВЛЕНИЕ МЕТА-БОКСА В АДМИНКУ ==========
+add_action('add_meta_boxes', 'ios_checkout_add_meta_box');
+function ios_checkout_add_meta_box() {
+    add_meta_box(
+        'ios_checkout_data',
+        'Данные iOS Checkout',
+        'ios_checkout_meta_box_content',
+        'shop_order',
+        'side',
+        'default'
+    );
+}
+
+function ios_checkout_meta_box_content($post) {
+    $order = wc_get_order($post->ID);
+    $cdek_pvz = get_post_meta($post->ID, '_cdek_pvz', true);
+    
+    echo '<div class="ios-checkout-meta">';
+    
+    if ($cdek_pvz) {
+        echo '<p><strong>ПВЗ CDEK:</strong><br>' . esc_html($cdek_pvz) . '</p>';
+    }
+    
+    echo '</div>';
+}
+
+// ========== ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (УБРАТЬ В ПРОДАКШЕНЕ) ==========
+add_action('woocommerce_checkout_order_processed', 'ios_checkout_log_order', 10, 3);
+function ios_checkout_log_order($order_id, $posted_data, $order) {
+    // Логирование для отладки
+    error_log('iOS Checkout Order: ' . $order_id);
+    error_log('Posted Data: ' . print_r($posted_data, true));
+}
+
+// ========== КАСТОМНЫЕ ХУКИ ДЛЯ РАЗРАБОТЧИКОВ ==========
+// Хук перед обработкой заказа
+do_action('ios_checkout_before_order_process');
+
+// Хук после обработки заказа
+add_action('woocommerce_checkout_order_processed', 'ios_checkout_after_order_process', 10, 3);
+function ios_checkout_after_order_process($order_id, $posted_data, $order) {
+    do_action('ios_checkout_after_order_process', $order_id, $order);
+}
 
 
 // ====================== КОРЗИНА — AJAX ОБНОВЛЕНИЕ СУММЫ ======================
