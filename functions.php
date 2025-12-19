@@ -1986,54 +1986,6 @@ function cart_sidebar_scripts() {
 
 
 //====================== CHECKOUT ============================================================================================
-
-add_filter('woocommerce_checkout_fields', 'ios_checkout_customize_fields');
-function ios_checkout_customize_fields($fields) {
-    
-    // Изменяем плейсхолдеры для полей
-    if (isset($fields['billing'])) {
-        $fields['billing']['billing_first_name']['placeholder'] = 'Иван';
-        $fields['billing']['billing_last_name']['placeholder'] = 'Иванов';
-        $fields['billing']['billing_phone']['placeholder'] = '+7 (999) 999-99-99';
-        $fields['billing']['billing_email']['placeholder'] = 'example@mail.com';
-        $fields['billing']['billing_address_1']['placeholder'] = 'Улица, дом';
-        $fields['billing']['billing_address_2']['placeholder'] = 'Квартира, корпус';
-        $fields['billing']['billing_city']['placeholder'] = 'Город';
-        $fields['billing']['billing_state']['placeholder'] = 'Область';
-        $fields['billing']['billing_postcode']['placeholder'] = '123456';
-        
-        // Изменяем лейблы
-        $fields['billing']['billing_first_name']['label'] = 'Имя';
-        $fields['billing']['billing_last_name']['label'] = 'Фамилия';
-        $fields['billing']['billing_phone']['label'] = 'Номер телефона';
-        $fields['billing']['billing_address_1']['label'] = 'Адрес';
-        $fields['billing']['billing_address_2']['label'] = 'Квартира, корпус';
-        $fields['billing']['billing_city']['label'] = 'Населенный пункт';
-        $fields['billing']['billing_country']['label'] = 'Страна';
-        $fields['billing']['billing_state']['label'] = 'Область / район';
-        $fields['billing']['billing_postcode']['label'] = 'Почтовый индекс';
-        
-        // Убираем ненужные поля
-        unset($fields['billing']['billing_company']);
-    }
-    
-    // Изменяем порядок полей
-    if (isset($fields['billing'])) {
-        $fields['billing']['billing_first_name']['priority'] = 10;
-        $fields['billing']['billing_last_name']['priority'] = 20;
-        $fields['billing']['billing_phone']['priority'] = 30;
-        $fields['billing']['billing_address_1']['priority'] = 40;
-        $fields['billing']['billing_address_2']['priority'] = 50;
-        $fields['billing']['billing_city']['priority'] = 60;
-        $fields['billing']['billing_country']['priority'] = 70;
-        $fields['billing']['billing_state']['priority'] = 80;
-        $fields['billing']['billing_postcode']['priority'] = 90;
-        $fields['billing']['billing_email']['priority'] = 100;
-    }
-    
-    return $fields;
-}
-
 // ========== ДОБАВЛЕНИЕ КЛАССОВ К ПОЛЯМ ==========
 add_filter('woocommerce_form_field_args', 'ios_checkout_field_args', 10, 3);
 function ios_checkout_field_args($args, $key, $value) {
@@ -2060,13 +2012,12 @@ function ios_checkout_button_text() {
     return 'Оформить заказ';
 }
 
-// ========== КАСТОМНЫЕ СТИЛИ ДЛЯ УВЕДОМЛЕНИЙ ==========
+// ========== КАСТОМНЫЕ СТИЛИ ==========
 add_action('wp_head', 'ios_checkout_custom_styles');
 function ios_checkout_custom_styles() {
     if (is_checkout() && !is_wc_endpoint_url('order-received')) {
         ?>
         <style>
-        /* Дополнительные стили для уведомлений */
         .woocommerce-NoticeGroup {
             position: fixed;
             top: 170px;
@@ -2081,55 +2032,156 @@ function ios_checkout_custom_styles() {
     }
 }
 
-// ========== СКРИПТЫ ДЛЯ СТРАНИЦЫ БЛАГОДАРНОСТИ ==========
-add_action('woocommerce_thankyou', 'ios_checkout_thankyou_scripts');
-function ios_checkout_thankyou_scripts($order_id) {
+// ========== СТРАНИЦА БЛАГОДАРНОСТИ - ИСПРАВЛЕНО ==========
+add_action('woocommerce_thankyou', 'ios_checkout_thankyou_page', 1);
+function ios_checkout_thankyou_page($order_id) {
+    if (!$order_id) {
+        return;
+    }
+    
+    // Получаем заказ
+    $order = wc_get_order($order_id);
+    if (!$order) {
+        return;
+    }
+    
     ?>
-    <script>
-    jQuery(document).ready(function($) {
-        // Показываем модальное окно успеха на странице благодарности
-        setTimeout(function() {
-            if ($('#iosSuccessModal').length) {
-                $('#iosSuccessModal').addClass('active');
-            }
-        }, 500);
-    });
-    </script>
     <style>
-    /* Скрываем стандартное содержимое страницы благодарности */
-    .woocommerce-order {
-        display: none;
+    /* Скрываем стандартное содержимое */
+    .woocommerce-order,
+    .woocommerce-order-details,
+    .woocommerce-customer-details,
+    .woocommerce-order-overview {
+        display: none !important;
+    }
+    
+    /* iOS стиль для страницы благодарности */
+    .ios-thankyou-wrapper {
+        max-width: 393px;
+        margin: 0 auto;
+        padding: 100px 16px 50px;
+        min-height: 100vh;
+        background: #f1f5f9;
+    }
+    
+    .ios-thankyou-card {
+        background: white;
+        border-radius: 24px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+    }
+    
+    .ios-thankyou-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+    
+    .ios-thankyou-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #18181b;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: -0.5px;
+    }
+    
+    .ios-thankyou-text {
+        font-size: 16px;
+        color: #64748b;
+        line-height: 1.6;
+        margin-bottom: 24px;
+    }
+    
+    .ios-thankyou-order {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .ios-thankyou-order-number {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    
+    .ios-thankyou-order-value {
+        font-size: 20px;
+        font-weight: 600;
+        color: #18181b;
+    }
+    
+    .ios-thankyou-button {
+        display: inline-block;
+        width: 100%;
+        padding: 16px;
+        background: #18181b;
+        color: #f1f5f9;
+        border-radius: 256px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .ios-thankyou-button:hover {
+        background: #27272a;
+        color: #f1f5f9;
     }
     </style>
+    
+    <div class="ios-thankyou-wrapper">
+        <div class="ios-thankyou-card">
+            <div class="ios-thankyou-icon">✅</div>
+            <div class="ios-thankyou-title">Заказ оформлен!</div>
+            <div class="ios-thankyou-text">
+                Спасибо за ваш заказ!<br>
+                Мы отправили подтверждение на вашу почту.
+            </div>
+            
+            <div class="ios-thankyou-order">
+                <div class="ios-thankyou-order-number">Номер заказа</div>
+                <div class="ios-thankyou-order-value">#<?php echo $order->get_order_number(); ?></div>
+            </div>
+            
+            <a href="<?php echo esc_url(home_url()); ?>" class="ios-thankyou-button">
+                Вернуться на главную
+            </a>
+        </div>
+    </div>
     <?php
 }
 
-// ========== AJAX ОБНОВЛЕНИЕ CHECKOUT ==========
+// ========== AJAX СКРИПТЫ ==========
 add_action('wp_footer', 'ios_checkout_ajax_scripts');
 function ios_checkout_ajax_scripts() {
     if (is_checkout() && !is_wc_endpoint_url('order-received')) {
         ?>
         <script>
         jQuery(document).ready(function($) {
-            // Обновление checkout при изменении доставки
             $(document.body).on('updated_checkout', function() {
                 console.log('Checkout updated');
-                // Можно добавить дополнительную логику
             });
             
-            // Обработка успешного заказа
+            // ИСПРАВЛЕНИЕ: Правильная обработка результата checkout
             $(document.body).on('checkout_place_order_success', function(e, result) {
-                if (result && result.result === 'success') {
+                console.log('Place order success:', result);
+                
+                // Если есть редирект (ЮKassa, PayPal и т.д.)
+                if (result && result.redirect) {
                     $('#iosLoading').addClass('active');
-                    return true;
+                    window.location.href = result.redirect;
+                    return false;
                 }
+                
+                return true;
             });
             
-            // Обработка ошибок
             $(document.body).on('checkout_error', function() {
                 $('#iosLoading').removeClass('active');
                 
-                // Прокручиваем к первой ошибке
                 if ($('.woocommerce-error').length) {
                     $('html, body').animate({
                         scrollTop: $('.woocommerce-error').offset().top - 200
@@ -2142,156 +2194,148 @@ function ios_checkout_ajax_scripts() {
     }
 }
 
-// ========== НАСТРОЙКА CDEK ==========
-// Если используется плагин CDEK, можно добавить дополнительные настройки
-add_filter('woocommerce_shipping_method_title', 'ios_checkout_shipping_method_title', 10, 2);
-function ios_checkout_shipping_method_title($title, $method) {
-    // Можно изменить отображение названий методов доставки
-    return $title;
-}
-
-// ========== УДАЛЕНИЕ НЕНУЖНЫХ ПОЛЕЙ ИЗ CHECKOUT ==========
-add_filter('woocommerce_checkout_fields', 'ios_checkout_remove_fields');
-function ios_checkout_remove_fields($fields) {
-    // Удаляем поле order comments (можно оставить, если нужно)
-    // unset($fields['order']['order_comments']);
-    
-    return $fields;
-}
-
 // ========== ВАЛИДАЦИЯ ТЕЛЕФОНА ==========
 add_action('woocommerce_checkout_process', 'ios_checkout_phone_validation');
 function ios_checkout_phone_validation() {
     $phone = isset($_POST['billing_phone']) ? $_POST['billing_phone'] : '';
-    
-    // Удаляем все символы кроме цифр
     $phone_digits = preg_replace('/[^0-9]/', '', $phone);
     
-    // Проверяем длину (должно быть 11 цифр для России)
     if (strlen($phone_digits) < 11) {
         wc_add_notice('Пожалуйста, введите корректный номер телефона', 'error');
     }
 }
 
-// ========== СОХРАНЕНИЕ ДОПОЛНИТЕЛЬНЫХ ДАННЫХ ==========
-add_action('woocommerce_checkout_update_order_meta', 'ios_checkout_save_custom_data');
-function ios_checkout_save_custom_data($order_id) {
-    // Здесь можно сохранить дополнительные данные заказа
-    // Например, выбранный ПВЗ CDEK
-    if (isset($_POST['cdek_pvz'])) {
-        update_post_meta($order_id, '_cdek_pvz', sanitize_text_field($_POST['cdek_pvz']));
+// ========== СОХРАНЕНИЕ ДАННЫХ CDEK ПВЗ ==========
+add_action('woocommerce_checkout_update_order_meta', 'ios_checkout_save_cdek_data');
+function ios_checkout_save_cdek_data($order_id) {
+    // Сохраняем код офиса CDEK
+    if (isset($_POST['cdek_office_code'])) {
+        update_post_meta($order_id, '_cdek_office_code', sanitize_text_field($_POST['cdek_office_code']));
+    }
+    
+    // Сохраняем адрес офиса CDEK
+    if (isset($_POST['cdek_office_address'])) {
+        update_post_meta($order_id, '_cdek_office_address', sanitize_text_field($_POST['cdek_office_address']));
     }
 }
 
-// ========== ОТОБРАЖЕНИЕ ДАННЫХ В АДМИНКЕ ==========
-add_action('woocommerce_admin_order_data_after_shipping_address', 'ios_checkout_display_custom_data');
-function ios_checkout_display_custom_data($order) {
-    $cdek_pvz = get_post_meta($order->get_id(), '_cdek_pvz', true);
-    
-    if ($cdek_pvz) {
-        echo '<p><strong>ПВЗ CDEK:</strong> ' . esc_html($cdek_pvz) . '</p>';
-    }
-}
-
-// ========== НАСТРОЙКА EMAIL УВЕДОМЛЕНИЙ ==========
-add_filter('woocommerce_email_order_meta_fields', 'ios_checkout_email_order_meta');
-function ios_checkout_email_order_meta($fields) {
-    // Добавляем дополнительные поля в email уведомления
-    $fields[] = array(
-        'label' => 'ПВЗ CDEK',
-        'value' => get_post_meta($GLOBALS['order']->get_id(), '_cdek_pvz', true)
-    );
-    
-    return $fields;
-}
-
-// ========== ОТКЛЮЧЕНИЕ АВТОЗАПОЛНЕНИЯ ДЛЯ НЕКОТОРЫХ ПОЛЕЙ ==========
-add_filter('woocommerce_checkout_fields', 'ios_checkout_disable_autocomplete');
-function ios_checkout_disable_autocomplete($fields) {
-    // Отключаем автозаполнение для email
-    if (isset($fields['billing']['billing_email'])) {
-        $fields['billing']['billing_email']['autocomplete'] = 'off';
-    }
-    
-    return $fields;
-}
-
-// ========== РЕДИРЕКТ ПОСЛЕ УСПЕШНОГО ЗАКАЗА ==========
-add_filter('woocommerce_get_return_url', 'ios_checkout_custom_return_url', 10, 2);
-function ios_checkout_custom_return_url($return_url, $order) {
-    // Можно изменить URL перенаправления после заказа
-    return $return_url;
-}
-
-// ========== КАСТОМИЗАЦИЯ СТРАНИЦЫ БЛАГОДАРНОСТИ ==========
-add_action('woocommerce_thankyou', 'ios_checkout_thankyou_content', 1);
-function ios_checkout_thankyou_content($order_id) {
-    if (!$order_id) {
+// ========== ОТОБРАЖЕНИЕ ДАННЫХ CDEK В АДМИНКЕ - ИСПРАВЛЕНО ==========
+add_action('woocommerce_admin_order_data_after_shipping_address', 'ios_checkout_display_cdek_data');
+function ios_checkout_display_cdek_data($order) {
+    // Безопасное получение ID заказа
+    if (is_numeric($order)) {
+        $order_id = $order;
+    } elseif (is_object($order) && method_exists($order, 'get_id')) {
+        $order_id = $order->get_id();
+    } else {
         return;
     }
     
-    $order = wc_get_order($order_id);
+    $cdek_office_code = get_post_meta($order_id, '_cdek_office_code', true);
+    $cdek_office_address = get_post_meta($order_id, '_cdek_office_address', true);
     
-    // Можно добавить кастомный контент на страницу благодарности
-    ?>
-    <div class="ios-thankyou-content" style="display: none;">
-        <h2>Спасибо за ваш заказ!</h2>
-        <p>Номер заказа: <?php echo $order->get_order_number(); ?></p>
-    </div>
-    <?php
+    if ($cdek_office_code || $cdek_office_address) {
+        echo '<div class="cdek-office-info" style="margin-top: 15px; padding: 10px; background: #f0f0f1; border-radius: 4px;">';
+        echo '<h4 style="margin: 0 0 10px 0;">📍 Пункт выдачи CDEK</h4>';
+        
+        if ($cdek_office_code) {
+            echo '<p style="margin: 5px 0;"><strong>Код:</strong> ' . esc_html($cdek_office_code) . '</p>';
+        }
+        
+        if ($cdek_office_address) {
+            echo '<p style="margin: 5px 0;"><strong>Адрес:</strong> ' . esc_html($cdek_office_address) . '</p>';
+        }
+        
+        echo '</div>';
+    }
 }
 
-// ========== ИЗМЕНЕНИЕ ФОРМАТА НОМЕРА ЗАКАЗА ==========
-add_filter('woocommerce_order_number', 'ios_checkout_custom_order_number', 10, 2);
-function ios_checkout_custom_order_number($order_number, $order) {
-    // Можно изменить формат номера заказа
-    // Например: return 'GB-' . $order_number;
-    return $order_number;
+// ========== EMAIL УВЕДОМЛЕНИЯ - ИСПРАВЛЕНО ==========
+add_filter('woocommerce_email_order_meta_fields', 'ios_checkout_email_meta', 10, 3);
+function ios_checkout_email_meta($fields, $sent_to_admin, $order) {
+    if (is_numeric($order)) {
+        $order_id = $order;
+    } elseif (is_object($order) && method_exists($order, 'get_id')) {
+        $order_id = $order->get_id();
+    } else {
+        return $fields;
+    }
+    
+    $cdek_office_code = get_post_meta($order_id, '_cdek_office_code', true);
+    $cdek_office_address = get_post_meta($order_id, '_cdek_office_address', true);
+    
+    if ($cdek_office_address) {
+        $fields['cdek_office'] = array(
+            'label' => 'Пункт выдачи CDEK',
+            'value' => $cdek_office_address . ($cdek_office_code ? ' (Код: ' . $cdek_office_code . ')' : '')
+        );
+    }
+    
+    return $fields;
 }
 
-// ========== ДОБАВЛЕНИЕ МЕТА-БОКСА В АДМИНКУ ==========
+// ========== МЕТА-БОКС В АДМИНКЕ ==========
 add_action('add_meta_boxes', 'ios_checkout_add_meta_box');
 function ios_checkout_add_meta_box() {
     add_meta_box(
-        'ios_checkout_data',
-        'Данные iOS Checkout',
+        'ios_checkout_cdek_data',
+        '📦 Информация о доставке CDEK',
         'ios_checkout_meta_box_content',
         'shop_order',
         'side',
-        'default'
+        'high'
     );
 }
 
 function ios_checkout_meta_box_content($post) {
-    $order = wc_get_order($post->ID);
-    $cdek_pvz = get_post_meta($post->ID, '_cdek_pvz', true);
+    $order_id = $post->ID;
+    $cdek_office_code = get_post_meta($order_id, '_cdek_office_code', true);
+    $cdek_office_address = get_post_meta($order_id, '_cdek_office_address', true);
     
-    echo '<div class="ios-checkout-meta">';
+    echo '<div style="padding: 10px;">';
     
-    if ($cdek_pvz) {
-        echo '<p><strong>ПВЗ CDEK:</strong><br>' . esc_html($cdek_pvz) . '</p>';
+    if ($cdek_office_code || $cdek_office_address) {
+        if ($cdek_office_code) {
+            echo '<p><strong>Код офиса:</strong><br>' . esc_html($cdek_office_code) . '</p>';
+        }
+        
+        if ($cdek_office_address) {
+            echo '<p><strong>Адрес:</strong><br>' . esc_html($cdek_office_address) . '</p>';
+        }
+    } else {
+        echo '<p style="color: #999;">Пункт выдачи не выбран</p>';
     }
     
     echo '</div>';
 }
 
-// ========== ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (УБРАТЬ В ПРОДАКШЕНЕ) ==========
-add_action('woocommerce_checkout_order_processed', 'ios_checkout_log_order', 10, 3);
-function ios_checkout_log_order($order_id, $posted_data, $order) {
-    // Логирование для отладки
-    error_log('iOS Checkout Order: ' . $order_id);
-    error_log('Posted Data: ' . print_r($posted_data, true));
+// ========== ОТЛАДКА (УДАЛИТЬ В ПРОДАКШЕНЕ) ==========
+add_action('wp_footer', 'ios_checkout_debug');
+function ios_checkout_debug() {
+    if (is_checkout() && current_user_can('manage_options')) {
+        ?>
+        <script>
+        console.log('%c=== iOS Checkout Debug ===', 'color: #3b82f6; font-weight: bold; font-size: 14px;');
+        console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
+        console.log('WooCommerce:', typeof wc_checkout_params !== 'undefined' ? 'Loaded' : 'Not loaded');
+        
+        // Логируем CDEK данные
+        var cdekScript = document.querySelector('script[type="application/cdek-offices"]');
+        if (cdekScript) {
+            try {
+                var offices = JSON.parse(cdekScript.textContent);
+                console.log('CDEK Offices found:', offices.length);
+            } catch(e) {
+                console.error('Error parsing CDEK offices:', e);
+            }
+        } else {
+            console.log('CDEK Offices: Not found');
+        }
+        </script>
+        <?php
+    }
 }
 
-// ========== КАСТОМНЫЕ ХУКИ ДЛЯ РАЗРАБОТЧИКОВ ==========
-// Хук перед обработкой заказа
-do_action('ios_checkout_before_order_process');
-
-// Хук после обработки заказа
-add_action('woocommerce_checkout_order_processed', 'ios_checkout_after_order_process', 10, 3);
-function ios_checkout_after_order_process($order_id, $posted_data, $order) {
-    do_action('ios_checkout_after_order_process', $order_id, $order);
-}
 
 
 // ====================== КОРЗИНА — AJAX ОБНОВЛЕНИЕ СУММЫ ======================

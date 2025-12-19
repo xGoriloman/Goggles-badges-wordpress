@@ -1014,7 +1014,7 @@
     -webkit-box-align: center;
     -ms-flex-align: center;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
     white-space: nowrap;
   }
 
@@ -6246,13 +6246,12 @@
 
     .header__menu {
       position: fixed;
-		max-width: calc(100vw - 32px);
       z-index: 11;
       -webkit-transition: all 0.4s ease 0s;
       transition: all 0.4s ease 0s;
       bottom: 0;
       left: 0;
-		right: 0;
+		  right: 0;
       background-color: rgba(255, 255, 255, 0.8);
       display: -webkit-box;
       display: -ms-flexbox;
@@ -6268,11 +6267,20 @@
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-radius: 40px;
-		margin: 0 16px;
-		z-index:10;
+      margin: 0 5px;
+      z-index:10;
+    }
+    .menu__list .menu__link span{
+      	display: block;
+        font-size: 8px;
+        text-align: center;
+        white-space: break-spaces;
+    }
+    .menu__link{
+      flex-direction: column;
     }
 	.menu__body {
-		padding:0 30px;
+		padding:0 15px;
 		width: 100%;
 		height: 100%;
 		background: rgba(255, 255, 255, 0.8);

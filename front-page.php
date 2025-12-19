@@ -33,9 +33,7 @@ get_header();
 
     <!-- Популярные товары -->
     <section class="section__popular-products popular-products">
-        <div class="popular-products__container">
-            <h2 class="popular-products__title title scroll-animate">Популярные товары</h2>
-            
+        <div class="popular-products__container">            
             <!-- Категории -->
             <div class="popular-products__category scroll-animate">
                 <ul>
