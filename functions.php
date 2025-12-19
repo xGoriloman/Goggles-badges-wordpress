@@ -48,6 +48,12 @@ function create_special_pages() {
     }
 }
 
+// Убираем хлебные крошки
+add_action( 'init', 'my_remove_breadcrumbs' );
+function my_remove_breadcrumbs() {
+    remove_action( 'woocommerce_before_main_content', 'woocommerce_breadcrumb', 20, 0 );
+}
+
 //====================== STYLE AND SCRIPT ============================================================================================
 add_action('wp_enqueue_scripts', 'theme_scripts');
 function theme_scripts() {

@@ -1,15 +1,24 @@
 <?php
 /**
  * The Template for displaying product archives
+ *
+ * @version 8.6.0
  */
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
-get_header(); ?>
+get_header('shop'); ?>
 
 <main class="page">
+    <?php
+    /**
+     * Hook: woocommerce_before_main_content.
+     */
+    do_action('woocommerce_before_main_content');
+    ?>
+    
     <section class="section__title">
         <div class="title__container">            
             <form id="sort" action="<?php echo esc_url(get_permalink(wc_get_page_id('shop'))); ?>" method="get" class="sort">
@@ -52,6 +61,8 @@ get_header(); ?>
 
     <section class="section__catalog catalog">
         <div class="catalog__container">
+            <?php //woocommerce_output_all_notices(); ?>
+            
             <div class="sidebar">
                 <button data-da="#filter, 991.98" type="button" class="sidebar__icon icon-sidebar-filter">
                     <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -96,6 +107,11 @@ get_header(); ?>
                                 wc_get_template_part('content', 'product');
                             }
                         }
+                        
+                        /**
+                         * Hook: woocommerce_after_shop_loop.
+                         */
+                        do_action('woocommerce_after_shop_loop');
                     } else {
                         do_action('woocommerce_no_products_found');
                     }
@@ -103,6 +119,13 @@ get_header(); ?>
             </div>
         </div>
     </section>
-</main>
     
-<?php get_footer(); ?>
+    <?php
+    /**
+     * Hook: woocommerce_after_main_content.
+     */
+    do_action('woocommerce_after_main_content');
+    ?>
+</main>
+
+<?php get_footer('shop'); ?>

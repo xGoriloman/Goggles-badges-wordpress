@@ -1,10 +1,4 @@
 <?php
-/**
- * Checkout Form - iOS Style ULTIMATE FIXED VERSION
- * Исправлено: ПВЗ CDEK, ЮKassa, пустая страница после заказа
- * 
- * Путь: /wp-content/themes/ваша-тема/woocommerce/checkout/form-checkout.php
- */
 
 defined( 'ABSPATH' ) || exit;
 
@@ -203,24 +197,28 @@ jQuery(document).ready(function($) {
         setupEventListeners();
         parseShippingMethods();
         loadCdekOffices();
-        integrateCdekPlugin();
+        // Интеграция CDEK должна быть вызвана после parseShippingMethods
+        integrateCdekPlugin(); 
     }
     
     // НОВАЯ ФУНКЦИЯ: Интеграция с плагином CDEK
     function integrateCdekPlugin() {
         // Находим все кнопки CDEK от плагина
-        const cdekButtons = $('.open-pvz-btn, .cdek-pvz-btn, [class*="cdek"]button, .cdek-widget-button');
+        // Ищем в скрытом контейнере, куда мы переместили элементы
+        const cdekButtons = $('#hiddenShippingMethods').find('.open-pvz-btn, .cdek-pvz-btn, [class*="cdek"]button, .cdek-widget-button');
         
         console.log('Found CDEK buttons:', cdekButtons.length);
         
         if (cdekButtons.length) {
             // Перехватываем клик на нашей кнопке ПВЗ
+            // Сначала удаляем старый обработчик, чтобы избежать дублирования
             $(document).off('click', '#cdekPvzSelector');
+            
             $(document).on('click', '#cdekPvzSelector', function(e) {
                 e.preventDefault();
                 console.log('Opening CDEK widget from plugin');
                 
-                // Кликаем по оригинальной кнопке плагина
+                // Кликаем по оригинальной кнопке плагина, которая находится в скрытом контейнере
                 cdekButtons.first().click();
             });
             
@@ -260,6 +258,7 @@ jQuery(document).ready(function($) {
                 return office.name;
             }
         }
+        // Возвращаем просто код, если имя не найдено
         return 'Офис CDEK #' + code;
     }
     
@@ -276,8 +275,7 @@ jQuery(document).ready(function($) {
         $('#billing_phone').on('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
             if (value.length > 0) {
-                if (value[0] === '7') value = value.substring(1);
-                if (value[0] === '8') value = value.substring(1);
+                if (value[0] === '7' || value[0] === '8') value = value.substring(1);
                 
                 let formatted = '+7';
                 if (value.length > 0) formatted += ' (' + value.substring(0, 3);
@@ -310,14 +308,14 @@ jQuery(document).ready(function($) {
             $('#hiddenShippingMethods').append(shippingMethods);
         }
         
-        // Также перемещаем всё содержимое order_review чтобы не потерять элементы CDEK
+        // Перемещаем ВСЕ элементы, которые могут быть связаны с расчетом доставки (например, поля CDEK)
+        // Они обычно находятся в order_review
         const orderReview = $('#order_review');
         if (orderReview.length) {
-            // Сохраняем все элементы CDEK
-            const cdekElements = orderReview.find('.open-pvz-btn, .cdek-pvz-btn, [class*="cdek"], input[name="office_code"]');
-            if (cdekElements.length) {
-                console.log('Found CDEK elements in order_review:', cdekElements.length);
-                $('#hiddenShippingMethods').append(cdekElements.clone(true));
+            const wcCdekElements = orderReview.find('.open-pvz-btn, .cdek-pvz-btn, [class*="cdek"], input[name="office_code"], .cdek-pvz-info, .cdek-widget-button').closest('li, div, p');
+            if (wcCdekElements.length) {
+                 // Клонируем, чтобы оригинальные элементы остались для работы плагина
+                $('#hiddenShippingMethods').append(wcCdekElements.clone(true, true).css('display', 'none')); 
             }
         }
     }
@@ -332,16 +330,19 @@ jQuery(document).ready(function($) {
     
     // Парсинг методов доставки
     function parseShippingMethods() {
-        const methods = $('input[name="shipping_method[0]"]');
+        // Ищем радиокнопки внутри скрытого контейнера
+        const methods = $('#hiddenShippingMethods').find('input[name="shipping_method[0]"]');
         const deliveryTypes = {};
         
         methods.each(function() {
             const $this = $(this);
             const value = $this.val();
-            const label = $this.next('label').clone();
+            // Находим соответствующий label, который содержит текст метода
+            const label = $this.closest('li, div').find('label').clone(); 
             label.find('input').remove();
             const text = label.text().trim();
             
+            // Логика группировки CDEK
             if (value.includes('official_cdek') || value.includes('cdek')) {
                 if (!deliveryTypes['cdek']) {
                     deliveryTypes['cdek'] = {
@@ -377,7 +378,8 @@ jQuery(document).ready(function($) {
     function renderDeliveryTypes(types) {
         let html = '';
         
-        if (types['cdek']) {
+        // 1. CDEK (Если есть методы CDEK)
+        if (types['cdek'] && types['cdek'].methods.length > 0) {
             html += `<div class="ios-option" onclick="selectDeliveryType('cdek', 'Доставка CDEK')">
                 <div class="option-icon">📦</div>
                 <div class="option-text">Доставка CDEK</div>
@@ -385,6 +387,7 @@ jQuery(document).ready(function($) {
             </div>`;
         }
         
+        // 2. Самовывоз
         if (types['pickup']) {
             html += `<div class="ios-option" onclick="selectDeliveryType('pickup', 'Самовывоз', '${types['pickup'].value}')">
                 <div class="option-icon">🏪</div>
@@ -393,24 +396,39 @@ jQuery(document).ready(function($) {
             </div>`;
         }
         
+        // 3. Другие методы
+        for (const key in types) {
+            if (key !== 'cdek' && key !== 'pickup') {
+                html += `<div class="ios-option" onclick="selectDeliveryType('standard', '${types[key].name}', '${types[key].value}')">
+                    <div class="option-icon">🚚</div>
+                    <div class="option-text">${types[key].name}</div>
+                    <div class="option-arrow">›</div>
+                </div>`;
+            }
+        }
+        
         $('#deliveryTypeOptions').html(html);
     }
     
     // Выбор типа доставки
-    window.selectDeliveryType = function(type, name, value) {
+    window.selectDeliveryType = function(type, name, value = null) {
         currentDeliveryType = type;
+        selectedShippingMethod = value; // Сбрасываем или устанавливаем для не-CDEK
+        
         $('#selectedDeliveryType .select-text').text(name);
         closeModal('deliveryTypeModal');
         
+        // Скрываем все CDEK-специфичные элементы по умолчанию
+        $('#cdekMethodSelector').hide();
+        $('#cdekPvzSelector').hide();
+        
         if (type === 'cdek') {
             $('#cdekMethodSelector').show();
-            $('#cdekPvzSelector').hide();
             $('#selectedCdekMethod .select-text').text('Выберите метод доставки');
             $('#cdekPvzText').text('Выбрать пункт выдачи CDEK');
             renderCdekMethods();
-        } else if (type === 'pickup') {
-            $('#cdekMethodSelector').hide();
-            $('#cdekPvzSelector').hide();
+        } else if (value) {
+            // Для Самовывоза или других стандартных методов
             $('input[name="shipping_method[0]"][value="' + value + '"]').prop('checked', true).trigger('change');
         }
     };
@@ -420,10 +438,12 @@ jQuery(document).ready(function($) {
         let html = '';
         
         cdekMethods.forEach(function(method) {
-            const parts = method.text.split(':');
-            const title = parts[0] ? parts[0].trim() : method.text;
-            const desc = parts[1] ? parts[1].trim() : '';
-            
+            // Пытаемся разделить название и описание
+            const regex = /(.*?)(?:\s+-\s+(.*))?$/;
+            const match = method.text.match(regex);
+            const title = match[1] ? match[1].trim() : method.text;
+            const desc = match[2] ? match[2].trim() : '';
+
             html += `<div class="ios-option" onclick="selectCdekMethod('${method.value}', '${escapeHtml(title)}')">
                 <div class="option-text">
                     <div class="option-title">${title}</div>
@@ -441,32 +461,34 @@ jQuery(document).ready(function($) {
         selectedShippingMethod = value;
         $('#selectedCdekMethod .select-text').text(name);
         
-        // Отмечаем радиокнопку
+        // 1. Отмечаем радиокнопку
         const $radio = $('input[name="shipping_method[0]"][value="' + value + '"]');
         $radio.prop('checked', true);
         
-        // Триггерим изменение для обновления checkout
+        // 2. Триггерим изменение для обновления checkout
         $radio.trigger('change');
         
         closeModal('cdekMethodModal');
         
-        // Показываем выбор ПВЗ если это склад/ПВЗ
+        // 3. Показываем выбор ПВЗ если это склад/ПВЗ
         const methodName = name.toLowerCase();
-        if (methodName.includes('склад') || methodName.includes('пвз') || methodName.includes('посылка')) {
-            setTimeout(function() {
+        
+        // Ждем небольшую паузу после обновления чекаута, чтобы плагин CDEK успел вставить виджет
+        setTimeout(function() {
+            if (methodName.includes('склад') || methodName.includes('пвз') || methodName.includes('посылка')) {
                 $('#cdekPvzSelector').show();
-                
-                // Проверяем наличие виджета CDEK
+                // Повторно связываем плагин
                 integrateCdekPlugin();
-            }, 500);
-        } else {
-            $('#cdekPvzSelector').hide();
-        }
+            } else {
+                $('#cdekPvzSelector').hide();
+            }
+        }, 800); 
     };
     
     // Отрисовка методов оплаты
     function renderPaymentMethods() {
-        const methods = $('.wc_payment_methods .wc_payment_method');
+        // Ищем методы оплаты в скрытом контейнере
+        const methods = $('#hiddenPaymentMethods').find('.wc_payment_methods .wc_payment_method');
         let html = '';
         
         methods.each(function() {
@@ -476,7 +498,8 @@ jQuery(document).ready(function($) {
             label.find('input').remove();
             const text = label.text().trim();
             const value = input.val();
-            const icon = $this.find('img').attr('src');
+            // Ищем иконку внутри элемента
+            const icon = $this.find('.payment_box img').attr('src') || $this.find('label img').attr('src');
             
             html += `<div class="ios-option payment-option" onclick="selectPaymentMethod('${value}', '${escapeHtml(text)}')">
                 <div class="option-text">
@@ -489,7 +512,7 @@ jQuery(document).ready(function($) {
         
         $('#paymentMethodOptions').html(html);
         
-        // Выбираем первый метод по умолчанию
+        // Выбираем первый метод по умолчанию, если ничего не выбрано
         const firstMethod = methods.first().find('input[type="radio"]');
         if (firstMethod.length && !selectedPaymentMethod) {
             const firstLabel = methods.first().find('label').text().trim();
@@ -501,6 +524,7 @@ jQuery(document).ready(function($) {
     window.selectPaymentMethod = function(value, name) {
         selectedPaymentMethod = value;
         $('#selectedPaymentMethod .select-text').text(name);
+        // Отмечаем и триггерим
         $('input[name="payment_method"][value="' + value + '"]').prop('checked', true).trigger('change');
         closeModal('paymentMethodModal');
     };
@@ -508,6 +532,7 @@ jQuery(document).ready(function($) {
     // Event listeners
     function setupEventListeners() {
         $('#deliveryTypeSelector').on('click', function() {
+            parseShippingMethods(); // Перепарсинг на случай, если методы изменились
             openModal('deliveryTypeModal');
         });
         
@@ -516,7 +541,7 @@ jQuery(document).ready(function($) {
         });
         
         $('#paymentMethodSelector').on('click', function() {
-            renderPaymentMethods();
+            renderPaymentMethods(); // Отрисовка каждый раз, так как WC может менять доступность методов
             openModal('paymentMethodModal');
         });
         
@@ -537,6 +562,8 @@ jQuery(document).ready(function($) {
     
     // Отправка заказа
     function submitOrder() {
+        // ... (Валидация остается без изменений, она выглядит адекватной) ...
+        
         // Валидация
         if (!currentDeliveryType) {
             alert('Пожалуйста, выберите способ доставки');
@@ -544,16 +571,11 @@ jQuery(document).ready(function($) {
         }
         
         if (currentDeliveryType === 'cdek' && !selectedShippingMethod) {
-            alert('Пожалуйста, выберите метод доставки CDEK');
+            alert('Пожалуйста, выберите метод доставки CDEK (Курьер или ПВЗ)');
             return;
         }
         
-        if (!selectedPaymentMethod) {
-            alert('Пожалуйста, выберите способ оплаты');
-            return;
-        }
-        
-        // Валидация обязательных полей
+        // Проверка заполнения полей
         let isValid = true;
         $('.validate-required').each(function() {
             const $input = $(this).find('input, select, textarea');
@@ -572,14 +594,19 @@ jQuery(document).ready(function($) {
         
         // Проверяем выбор ПВЗ для методов склад
         const methodName = $('#selectedCdekMethod .select-text').text().toLowerCase();
-        if (methodName && (methodName.includes('склад') || methodName.includes('пвз'))) {
+        if (currentDeliveryType === 'cdek' && (methodName.includes('склад') || methodName.includes('пвз') || methodName.includes('посылка'))) {
             const officeCode = $('input[name="office_code"]').val();
-            if (!officeCode && !selectedCdekOffice) {
+            if (!officeCode) {
                 alert('Пожалуйста, выберите пункт выдачи CDEK');
                 return;
             }
         }
         
+        if (!selectedPaymentMethod) {
+            alert('Пожалуйста, выберите способ оплаты');
+            return;
+        }
+
         // Показываем загрузку
         $('#iosLoading').addClass('active');
         
@@ -598,6 +625,7 @@ jQuery(document).ready(function($) {
         
         if (result && result.result === 'success') {
             if (result.redirect) {
+                // Если есть редирект (например, на ЮKassa или Thank You page)
                 $('#iosLoading').addClass('active');
                 window.location.href = result.redirect;
                 return false;
@@ -629,9 +657,10 @@ jQuery(document).ready(function($) {
     
     // Обновление корзины при изменении доставки
     $(document.body).on('change', 'input[name="shipping_method[0]"]', function() {
+        // Убедимся, что при смене метода доставки вызывается обновление чекаута
         $(document.body).trigger('update_checkout');
         
-        // Повторно интегрируем CDEK после обновления
+        // Повторно интегрируем CDEK после обновления, так как плагин мог перерисовать виджет
         setTimeout(function() {
             integrateCdekPlugin();
         }, 500);
@@ -645,7 +674,9 @@ jQuery(document).ready(function($) {
     // После обновления checkout
     $(document.body).on('updated_checkout', function() {
         console.log('Checkout updated');
-        parseShippingMethods();
+        // Обновляем список методов на случай, если цены/доступность изменились
+        parseShippingMethods(); 
+        // Повторно связываем CDEK
         integrateCdekPlugin();
     });
 });
