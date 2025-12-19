@@ -203,6 +203,64 @@ jQuery(document).ready(function($) {
         setupEventListeners();
         parseShippingMethods();
         loadCdekOffices();
+        integrateCdekPlugin();
+    }
+    
+    // НОВАЯ ФУНКЦИЯ: Интеграция с плагином CDEK
+    function integrateCdekPlugin() {
+        // Находим все кнопки CDEK от плагина
+        const cdekButtons = $('.open-pvz-btn, .cdek-pvz-btn, [class*="cdek"]button, .cdek-widget-button');
+        
+        console.log('Found CDEK buttons:', cdekButtons.length);
+        
+        if (cdekButtons.length) {
+            // Перехватываем клик на нашей кнопке ПВЗ
+            $(document).off('click', '#cdekPvzSelector');
+            $(document).on('click', '#cdekPvzSelector', function(e) {
+                e.preventDefault();
+                console.log('Opening CDEK widget from plugin');
+                
+                // Кликаем по оригинальной кнопке плагина
+                cdekButtons.first().click();
+            });
+            
+            // Слушаем изменения в скрытых полях от плагина
+            $(document.body).on('change', 'input[name="office_code"], .cdek-office-code', function() {
+                const code = $(this).val();
+                console.log('CDEK office selected:', code);
+                
+                if (code) {
+                    // Ищем информацию об офисе
+                    const officeName = findOfficeNameByCode(code);
+                    if (officeName) {
+                        $('#cdekPvzText').text(officeName);
+                        selectedCdekOffice = {
+                            code: code,
+                            name: officeName
+                        };
+                    }
+                }
+            });
+        }
+        
+        // Отслеживаем события от плагина CDEK
+        $(document.body).on('cdek_office_selected', function(e, data) {
+            console.log('CDEK office selected via event:', data);
+            if (data && data.code) {
+                $('#cdekPvzText').text(data.name || 'Офис CDEK #' + data.code);
+            }
+        });
+    }
+    
+    // Поиск названия офиса по коду
+    function findOfficeNameByCode(code) {
+        if (cdekOfficesData.length > 0) {
+            const office = cdekOfficesData.find(o => o.code === code);
+            if (office) {
+                return office.name;
+            }
+        }
+        return 'Офис CDEK #' + code;
     }
     
     // Обновление времени
@@ -250,6 +308,17 @@ jQuery(document).ready(function($) {
         const shippingMethods = $('#shipping_method');
         if (shippingMethods.length) {
             $('#hiddenShippingMethods').append(shippingMethods);
+        }
+        
+        // Также перемещаем всё содержимое order_review чтобы не потерять элементы CDEK
+        const orderReview = $('#order_review');
+        if (orderReview.length) {
+            // Сохраняем все элементы CDEK
+            const cdekElements = orderReview.find('.open-pvz-btn, .cdek-pvz-btn, [class*="cdek"], input[name="office_code"]');
+            if (cdekElements.length) {
+                console.log('Found CDEK elements in order_review:', cdekElements.length);
+                $('#hiddenShippingMethods').append(cdekElements.clone(true));
+            }
         }
     }
     
@@ -371,82 +440,28 @@ jQuery(document).ready(function($) {
     window.selectCdekMethod = function(value, name) {
         selectedShippingMethod = value;
         $('#selectedCdekMethod .select-text').text(name);
-        $('input[name="shipping_method[0]"][value="' + value + '"]').prop('checked', true).trigger('change');
+        
+        // Отмечаем радиокнопку
+        const $radio = $('input[name="shipping_method[0]"][value="' + value + '"]');
+        $radio.prop('checked', true);
+        
+        // Триггерим изменение для обновления checkout
+        $radio.trigger('change');
+        
         closeModal('cdekMethodModal');
         
         // Показываем выбор ПВЗ если это склад/ПВЗ
         const methodName = name.toLowerCase();
         if (methodName.includes('склад') || methodName.includes('пвз') || methodName.includes('посылка')) {
-            $('#cdekPvzSelector').show();
-            renderCdekPvzList();
+            setTimeout(function() {
+                $('#cdekPvzSelector').show();
+                
+                // Проверяем наличие виджета CDEK
+                integrateCdekPlugin();
+            }, 500);
         } else {
             $('#cdekPvzSelector').hide();
         }
-    };
-    
-    // Отрисовка списка ПВЗ
-    function renderCdekPvzList() {
-        let html = '';
-        
-        if (cdekOfficesData.length > 0) {
-            cdekOfficesData.forEach(function(office) {
-                const code = office.code || '';
-                const name = office.name || '';
-                const address = office.location ? office.location.address_full : office.address_comment || '';
-                const workTime = office.work_time || '';
-                
-                html += `<div class="cdek-pvz-item" onclick="selectPvz('${escapeHtml(code)}', '${escapeHtml(name)}', '${escapeHtml(address)}')">
-                    <div class="pvz-icon">📍</div>
-                    <div class="pvz-info">
-                        <div class="pvz-title">${name}</div>
-                        <div class="pvz-desc">${workTime}</div>
-                    </div>
-                    <div class="pvz-arrow">›</div>
-                </div>`;
-            });
-        } else {
-            // Если нет данных, показываем примеры
-            html = `
-                <div class="cdek-pvz-item" onclick="selectPvz('IVN3', 'IVN3, Иваново, пр-т Ленина', 'пр-т Ленина, 43')">
-                    <div class="pvz-icon">📍</div>
-                    <div class="pvz-info">
-                        <div class="pvz-title">IVN3, Иваново, пр-т Ленина</div>
-                        <div class="pvz-desc">Пн-Пт 10:00-19:00, Сб 10:00-16:00</div>
-                    </div>
-                    <div class="pvz-arrow">›</div>
-                </div>`;
-        }
-        
-        $('#cdekPvzList').html(html);
-    }
-    
-    // Выбор ПВЗ
-    window.selectPvz = function(code, name, address) {
-        selectedCdekOffice = {
-            code: code,
-            name: name,
-            address: address
-        };
-        
-        $('#cdekPvzText').text(name);
-        
-        // Сохраняем в скрытые поля
-        $('input[name="cdek_office_code"]').remove();
-        $('input[name="cdek_office_address"]').remove();
-        
-        $('<input>').attr({
-            type: 'hidden',
-            name: 'cdek_office_code',
-            value: code
-        }).appendTo('form.checkout');
-        
-        $('<input>').attr({
-            type: 'hidden',
-            name: 'cdek_office_address',
-            value: address
-        }).appendTo('form.checkout');
-        
-        closeModal('cdekPvzModal');
     };
     
     // Отрисовка методов оплаты
@@ -498,11 +513,6 @@ jQuery(document).ready(function($) {
         
         $('#cdekMethodSelector').on('click', function() {
             openModal('cdekMethodModal');
-        });
-        
-        $('#cdekPvzSelector').on('click', function() {
-            renderCdekPvzList();
-            openModal('cdekPvzModal');
         });
         
         $('#paymentMethodSelector').on('click', function() {
@@ -560,6 +570,16 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        // Проверяем выбор ПВЗ для методов склад
+        const methodName = $('#selectedCdekMethod .select-text').text().toLowerCase();
+        if (methodName && (methodName.includes('склад') || methodName.includes('пвз'))) {
+            const officeCode = $('input[name="office_code"]').val();
+            if (!officeCode && !selectedCdekOffice) {
+                alert('Пожалуйста, выберите пункт выдачи CDEK');
+                return;
+            }
+        }
+        
         // Показываем загрузку
         $('#iosLoading').addClass('active');
         
@@ -577,18 +597,15 @@ jQuery(document).ready(function($) {
         console.log('Checkout result:', result);
         
         if (result && result.result === 'success') {
-            // ЮKassa и другие платежные шлюзы могут вернуть redirect
             if (result.redirect) {
                 $('#iosLoading').addClass('active');
                 window.location.href = result.redirect;
-                return false; // Предотвращаем двойную отправку
+                return false;
             }
         }
         
-        // Если есть ошибки
         if (result && result.result === 'failure') {
             $('#iosLoading').removeClass('active');
-            // WooCommerce сам покажет ошибки
         }
         
         return true;
@@ -613,6 +630,11 @@ jQuery(document).ready(function($) {
     // Обновление корзины при изменении доставки
     $(document.body).on('change', 'input[name="shipping_method[0]"]', function() {
         $(document.body).trigger('update_checkout');
+        
+        // Повторно интегрируем CDEK после обновления
+        setTimeout(function() {
+            integrateCdekPlugin();
+        }, 500);
     });
     
     // Обновление при изменении метода оплаты
@@ -623,8 +645,8 @@ jQuery(document).ready(function($) {
     // После обновления checkout
     $(document.body).on('updated_checkout', function() {
         console.log('Checkout updated');
-        // Перерисовываем методы если нужно
         parseShippingMethods();
+        integrateCdekPlugin();
     });
 });
 </script>

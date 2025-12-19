@@ -1052,5 +1052,24 @@ body.woocommerce-order-received .woocommerce-order {
 }
 
 /* ==========================================
-   END OF STYLESHEET
+   ИНТЕГРАЦИЯ С ПЛАГИНОМ CDEK
    ========================================== */
+
+/* Скрываем оригинальные элементы CDEK но сохраняем их функциональность */
+.open-pvz-btn,
+.cdek-pvz-btn,
+.cdek-widget-button {
+    display: none !important;
+}
+
+/* Скрываем скрытое поле office_code */
+input[name="office_code"],
+.cdek-office-code {
+    display: none !important;
+}
+
+/* Виджет CDEK */
+#cdek-map,
+.cdek-map-container {
+    z-index: 10003 !important;
+}
