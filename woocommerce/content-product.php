@@ -36,6 +36,41 @@ if ($is_on_sale && $has_regular_price && $has_sale_price) {
         $is_valid_discount = ($discount >= 1 && $discount <= 99);
     }
 }
+
+// Получаем изображения
+$product_images = array();
+$main_image_id = $product->get_image_id();
+$gallery_image_ids = $product->get_gallery_image_ids();
+
+// Добавляем основное изображение
+if ($main_image_id) {
+    $product_images[] = array(
+        'id' => $main_image_id,
+        'url' => wp_get_attachment_image_url($main_image_id, 'woocommerce_thumbnail'),
+        'full' => wp_get_attachment_image_url($main_image_id, 'woocommerce_single')
+    );
+}
+
+// Добавляем галерею
+foreach ($gallery_image_ids as $gallery_image_id) {
+    $product_images[] = array(
+        'id' => $gallery_image_id,
+        'url' => wp_get_attachment_image_url($gallery_image_id, 'woocommerce_thumbnail'),
+        'full' => wp_get_attachment_image_url($gallery_image_id, 'woocommerce_single')
+    );
+}
+
+// Если нет изображений - placeholder
+if (empty($product_images)) {
+    $product_images[] = array(
+        'id' => 0,
+        'url' => wc_placeholder_img_src('woocommerce_thumbnail'),
+        'full' => wc_placeholder_img_src('woocommerce_single')
+    );
+}
+
+// Проверяем, есть ли галерея (больше 1 изображения)
+$has_gallery = count($product_images) > 1;
 ?>
 
 <div class="card scroll-animate" data-product-id="<?php echo esc_attr($product_id); ?>">
@@ -50,22 +85,45 @@ if ($is_on_sale && $has_regular_price && $has_sale_price) {
             <path d="M12.87 0C11.34 0 9.99 0.606935 9 1.73411C8.01 0.606935 6.66 0 5.13 0C2.34 0 0 2.25434 0 4.94218C0 5.11559 0 5.289 0 5.46241C0.36 9.53759 4.86 12.9191 7.47 14.5665C7.92 14.8266 8.46 15 9 15C9.54 15 10.08 14.8266 10.53 14.5665C13.14 12.9191 17.64 9.53759 18 5.54912C18 5.37571 18 5.20229 18 5.02888C18 2.25433 15.66 0 12.87 0Z" fill="#F80F4E" />
         </svg>
     </span>
-    
-    <a href="<?php echo esc_url(get_permalink($product_id)); ?>" class="card__image-ibg">
-        <?php 
-        // Вывод изображения товара
-        echo $product->get_image('woocommerce_thumbnail', array(
-            'class' => 'card__image',
-            'loading' => 'lazy',
-            'alt' => $product->get_name()
-        )); 
-        ?>
-    </a>
+    <?php //echo esc_url(get_permalink($product_id)); ?>
+    <div class="card__image-link">
+        <?php if ($has_gallery) : ?>
+            <!-- Если есть галерея - выводим слайдер -->
+            <div class="card__image-block">
+                <div class="card-slider card-swiper" style='width: 100%;height: 100%;-webkit-box-sizing: content-box;box-sizing: content-box;display: -webkit-box;display: -ms-flexbox;display: flex;position: relative; overflow: hidden;'>
+                    <div class="swiper-wrapper" >
+                        <?php foreach ($product_images as $index => $image) : ?>
+                            <div class="swiper-slide">
+                                <div class="card__image-ibg">
+                                    <img src="<?php echo esc_url($image['url']); ?>" 
+                                         alt="<?php echo esc_attr($product->get_name()); ?> - фото <?php echo $index + 1; ?>"
+                                         data-full="<?php echo esc_url($image['full']); ?>"
+                                         loading="lazy"
+                                         class="card__image">
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                </div>
+                <!-- Пагинация -->
+                <div class="card-slider__pagination swiper-pagination"></div>
+            </div>
+        <?php else : ?>
+            <!-- Если только одно изображение - выводим как раньше -->
+            <div class="card__image-ibg">
+                <?php 
+                echo $product->get_image('woocommerce_thumbnail', array(
+                    'class' => 'card__image',
+                    'loading' => 'lazy',
+                    'alt' => $product->get_name()
+                )); 
+                ?>
+            </div>
+        <?php endif; ?>
+    </div>
     
     <div class="card__conten">
-        <p class="card__article">
-            Арт <?php echo $product->get_sku() ? esc_html($product->get_sku()) : $product_id; ?>
-        </p>
         
         <?php
         // Вывод бренда (таксономия product_brand)
@@ -87,7 +145,7 @@ if ($is_on_sale && $has_regular_price && $has_sale_price) {
                     <div class="card__price card__old-price"><?php echo wc_price($regular_price); ?></div>
                 <?php endif; ?>
             <?php else : ?>
-                <div class="card__price card__new-price"><?php echo $product->get_price_html(); ?></div>
+                <div class="card__price"><?php echo $product->get_price_html(); ?></div>
             <?php endif; ?>
         </div>
         

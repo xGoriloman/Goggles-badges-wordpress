@@ -27,8 +27,7 @@ jQuery(document).ready(function ($) {
             }
         }, 500); // 500ms задержка
     }
-
-    
+        
     // Показываем уведомление
     function showNotification(message, type = 'success') {
         if (typeof window.flsNotifications !== 'undefined') {
@@ -85,27 +84,27 @@ jQuery(document).ready(function ($) {
               if (response.success) {
                   console.log('Ответ от сервера:', response);
                   
-                  if (response.data.fragments) {
-                      $.each(response.data.fragments, function (selector, html) {
-                          console.log('Селектор:', selector, 'HTML длина:', html.length);
+                //   if (response.data.fragments) {
+                //       $.each(response.data.fragments, function (selector, html) {
+                //           console.log('Селектор:', selector, 'HTML длина:', html.length);
                           
-                          const $target = $(selector);
-                          console.log('Найден элемент по селектору:', $target.length);
+                //           const $target = $(selector);
+                //           console.log('Найден элемент по селектору:', $target.length);
                           
-                          if ($target.length && html) {
-                              // УБЕРИТЕ УСЛОВИЯ - просто заменяем всё
-                              $target.replaceWith($.parseHTML(html));
-                              console.log('Элемент заменен:', selector);
-                          } else {
-                              console.warn('Элемент не найден:', selector);
-                          }
-                      });
-                  }
+                //           if ($target.length && html) {
+                //               // УБЕРИТЕ УСЛОВИЯ - просто заменяем всё
+                //               $target.replaceWith($.parseHTML(html));
+                //               console.log('Элемент заменен:', selector);
+                //           } else {
+                //               console.warn('Элемент не найден:', selector);
+                //           }
+                //       });
+                //   }
                   
-                  // Обновляем шапку
-                  if (response.data.cart_count !== undefined) {
-                      updateHeaderCartCount(response.data.cart_count, response.data.cart_total);
-                  }
+                //   // Обновляем шапку
+                //   if (response.data.cart_count !== undefined) {
+                //       updateHeaderCartCount(response.data.cart_count, response.data.cart_total);
+                //   }
                   
                   initCartRowButtons(cartKey);
                   showNotification(response.data.message, 'success');
@@ -120,6 +119,7 @@ jQuery(document).ready(function ($) {
                 setTimeout(() => location.reload(), 1000);
             },
             complete: function () {
+                
                 hideRowLoader(cartKey);
             }
         });

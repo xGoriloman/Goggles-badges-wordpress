@@ -192,7 +192,7 @@ jQuery(document).ready(function ($) {
             url: ajax_filter.ajax_url,
             type: 'POST',
             data: {
-                action: 'pfunxtion',
+                action: 'get_subcategories',
                 category_id: categoryId,
                 level: level,
                 nonce: ajax_filter.nonce
@@ -364,7 +364,7 @@ jQuery(document).ready(function ($) {
                     align-items: center;
                     justify-content: center;
                     background: rgba(255, 255, 255, 0.8);
-                    z-index: 100;
+                    z-index: 8;
                 ">
                     <svg class="spinner" width="50" height="50" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: rotate 1s linear infinite;">
                         <g clip-path="url(#clip-path)">

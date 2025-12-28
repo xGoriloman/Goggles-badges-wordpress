@@ -55,8 +55,8 @@ if (!defined('ABSPATH')) {
                                             
                                             // Получаем выбранный размер
                                             $selected_size = '';
-                                            if (isset($cart_item['variation']['attribute_pa_size'])) {
-                                                $selected_size = $cart_item['variation']['attribute_pa_size'];
+                                            if ($_product->get_attribute('pa_size')) {
+                                                $selected_size = $_product->get_attribute('pa_size');
                                             }
                                             
                                             // Получаем доступные размеры
@@ -225,7 +225,7 @@ if (!defined('ABSPATH')) {
                                                             echo '<div class="cart__price cart__price--new">' . wc_price($total_price) . '</div>';
                                                             echo '<div class="cart__price cart__price--old">' . wc_price($total_regular_price) . '</div>';
                                                         } else {
-                                                            echo '<div class="cart__price cart__price--new">' . wc_price($total_price) . '</div>';
+                                                            echo '<div class="cart__price">' . wc_price($total_price) . '</div>';
                                                         }
                                                         ?>
                                                     </div>
@@ -259,78 +259,68 @@ if (!defined('ABSPATH')) {
                     </div>
 
                     <!-- Боковая панель корзины -->
-                    <div class="cart__sidebar sidebar-cart">
+                    <div class="cart-collaterals cart__sidebar sidebar-cart">
 						<div class="cart-totals-fragment" data-fragment="custom-cart-totals">
 							<div class="sidebar-cart-premium">
 								<h3 class="sidebar-cart-premium__title">Ваш заказ</h3>
 
 								<table class="sidebar-cart-premium__table">
 									<tbody>
-										<!-- Сумма товаров -->
-										<div class="cart__sidebar sidebar-cart">
-											<div class="cart-totals-fragment" data-fragment="custom-cart-totals">
-												<div class="sidebar-cart-premium">
-													<h3 class="sidebar-cart-premium__title">Ваш заказ</h3>
+                                        <?php
+                                        // Рассчитываем общую сумму по обычным ценам и общую скидку
+                                        $total_regular_price = 0;
+                                        $total_sale_discount = 0;
 
-													<table class="sidebar-cart-premium__table">
-														<tbody>
-															<?php
-															// Рассчитываем общую сумму по обычным ценам и общую скидку
-															$total_regular_price = 0;
-															$total_sale_discount = 0;
+                                        foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
+                                            $_product = apply_filters( 'woocommerce_cart_item_product', $cart_item['data'], $cart_item, $cart_item_key );
 
-															foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
-																$_product = apply_filters( 'woocommerce_cart_item_product', $cart_item['data'], $cart_item, $cart_item_key );
+                                            if ( $_product && $_product->exists() ) {
+                                                $regular_price = $_product->get_regular_price();
+                                                $sale_price = $_product->get_sale_price();
+                                                $quantity = $cart_item['quantity'];
 
-																if ( $_product && $_product->exists() ) {
-																	$regular_price = $_product->get_regular_price();
-																	$sale_price = $_product->get_sale_price();
-																	$quantity = $cart_item['quantity'];
+                                                // Сумма по обычной цене
+                                                $total_regular_price += $regular_price * $quantity;
 
-																	// Сумма по обычной цене
-																	$total_regular_price += $regular_price * $quantity;
+                                                // Если есть скидка на товар
+                                                if ( $sale_price && $regular_price > $sale_price ) {
+                                                    $item_discount = ( $regular_price - $sale_price ) * $quantity;
+                                                    $total_sale_discount += $item_discount;
+                                                }
+                                            }
+                                        }
+                                        ?>
 
-																	// Если есть скидка на товар
-																	if ( $sale_price && $regular_price > $sale_price ) {
-																		$item_discount = ( $regular_price - $sale_price ) * $quantity;
-																		$total_sale_discount += $item_discount;
-																	}
-																}
-															}
-															?>
+                                        <!-- Цена без скидок -->
+                                        <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--regular-price">
+                                            <th>Сумма</th>
+                                            <td><?php echo wc_price( $total_regular_price ); ?></td>
+                                        </tr>
 
-															<!-- Цена без скидок -->
-															<tr class="sidebar-cart-premium__row sidebar-cart-premium__row--regular-price">
-																<th>Сумма</th>
-																<td><?php echo wc_price( $total_regular_price ); ?></td>
-															</tr>
+                                        <?php
+                                        // Если общая скидка больше 0, показываем её
+                                        if ( $total_sale_discount > 0 ) : ?>
+                                            <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--sale-discount">
+                                                <th>Скидка</th>
+                                                <td>
+                                                    -<?php echo wc_price( $total_sale_discount ); ?>
+                                                </td>
+                                            </tr>
+                                        <?php endif; ?>
 
-															<?php
-															// Если общая скидка больше 0, показываем её
-															if ( $total_sale_discount > 0 ) : ?>
-																<tr class="sidebar-cart-premium__row sidebar-cart-premium__row--sale-discount">
-																	<th>Скидка</th>
-																	<td>
-																		-<?php echo wc_price( $total_sale_discount ); ?>
-																	</td>
-																</tr>
-															<?php endif; ?>
-
-															<!-- ИТОГО -->
-															<tr class="sidebar-cart-premium__row sidebar-cart-premium__row--total">
-																<th>Итого к оплате:</th>
-																<td><?php wc_cart_totals_order_total_html(); ?></td>
-															</tr>                                    
-
-														</tbody>
-													</table>
-
-													<a href="<?php echo esc_url(wc_get_checkout_url()); ?>" class="sidebar-cart-premium__button">
-														Оформить заказ
-													</a>
-												</div>
-											</div>
-										</div>
+                                        <!-- ИТОГО -->
+                                        <tr class="sidebar-cart-premium__row sidebar-cart-premium__row--total">
+                                            <th>Итого к оплате:</th>
+                                            <td><?php wc_cart_totals_order_total_html(); ?></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <a href="<?php echo esc_url(wc_get_checkout_url()); ?>" class="sidebar-cart-premium__button">
+                                    Оформить заказ
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
             <?php 

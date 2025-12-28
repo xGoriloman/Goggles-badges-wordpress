@@ -5974,6 +5974,134 @@
         },
         on: {},
       });
+
+    // Инициализация слайдеров для карточек товаров
+    const initProductSliders = () => {
+      // Выбираем только слайдеры с классом card-swiper которые еще не инициализированы
+      const productSliders = document.querySelectorAll('.card-swiper:not(.swiper-initialized)');
+      
+      console.log('Найдено слайдеров для инициализации:', productSliders.length);
+      
+      if (productSliders.length === 0) return;
+      
+      productSliders.forEach((sliderElement) => {
+          const imagesCount = sliderElement.querySelectorAll('.swiper-slide').length;
+          
+          // Если только одно изображение - НЕ инициализируем слайдер (на всякий случай)
+          if (imagesCount <= 1) {
+              console.log('Только 1 изображение в слайдере - пропускаем');
+              // Просто добавляем класс чтобы не пытаться инициализировать снова
+              sliderElement.classList.add('swiper-initialized');
+              return;
+          }
+          
+          console.log('Инициализируем слайдер с', imagesCount, 'изображениями');
+          
+          let product = sliderElement.closest('.card');
+          
+          // Помечаем как инициализированный ДО создания Swiper
+          sliderElement.classList.add('swiper-initialized');
+          
+          const slider = new swiper_core_Swiper(sliderElement, {
+              // Ваши настройки
+              modules: [Pagination],
+              observer: true,
+              observeParents: true,
+              slidesPerView: 1,
+              spaceBetween: 30,
+              autoHeight: true,
+              speed: 800,
+              
+              // Пагинация
+              pagination: {
+                  el: product.querySelector('.card-slider__pagination'),
+                  clickable: true,
+              },
+              
+              // Адаптивность
+              breakpoints: {
+                  320: {
+                      allowTouchMove: true,
+                      slidesPerView: 1,
+                  },
+                  768: {
+                      allowTouchMove: true,
+                      slidesPerView: 1,
+                  },
+                  1024: {
+                      allowTouchMove: true,
+                      slidesPerView: 1,
+                  }
+              }
+          });
+          
+          console.log('Слайдер инициализирован успешно');
+      });
+    };
+    console.log('DOM загружен, инициализируем слайдеры...');
+    initProductSliders();
+  
+    // Оптимизированный MutationObserver
+    let observerTimeout;
+  window.forceInitProductSliders = function() {
+    console.log('Принудительная инициализация слайдеров');
+    initProductSliders();
+  };
+    const observer = new MutationObserver(function(mutations) {
+        // Отменяем предыдущий таймаут
+        clearTimeout(observerTimeout);
+        
+        // Проверяем, действительно ли добавились новые карточки
+        const hasNewCards = mutations.some(mutation => {
+            return Array.from(mutation.addedNodes).some(node => {
+                if (node.nodeType === 1) {
+                    return node.classList && node.classList.contains('card') ||
+                          node.querySelector && node.querySelector('.card-swiper:not(.swiper-initialized)');
+                }
+                return false;
+            });
+        });
+        
+        if (hasNewCards) {
+            console.log('Найдены новые товары, инициализируем слайдеры через 300мс...');
+            // Задержка для гарантии полной загрузки DOM и изображений
+            observerTimeout = setTimeout(() => {
+                initProductSliders();
+            }, 300);
+        }
+    });
+  
+    // Наблюдаем за изменениями в контейнере товаров
+    const productsContainer = document.querySelector('.products') || document.querySelector('.shop') || document.querySelector('.woocommerce-products');
+                            
+    if (productsContainer) {
+        console.log('Наблюдаем за контейнером:', productsContainer);
+        observer.observe(productsContainer, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // ВАЖНО: Добавляем функцию для принудительного обновления всех слайдеров
+    window.updateAllProductSliders = function() {
+        document.querySelectorAll('.card-slider.swiper-initialized').forEach(sliderElement => {
+            if (sliderElement.swiper) {
+                sliderElement.swiper.update();
+                sliderElement.swiper.updateSlides();
+                console.log('Слайдер обновлен:', sliderElement);
+            }
+        });
+    };
+
+    // Обновляем слайдеры при изменении размера окна
+    window.addEventListener('resize', function() {
+        setTimeout(updateAllProductSliders, 100);
+    });
+
+    // Обновляем слайдеры после загрузки всех изображений
+    window.addEventListener('load', function() {
+        setTimeout(updateAllProductSliders, 500);
+    });
   }
   window.addEventListener("load", function (e) {
     initSliders();

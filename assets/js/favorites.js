@@ -4,8 +4,9 @@ jQuery(document).ready(function ($) {
 
   $(document).on("click", ".card__favourite", function (e) {
     e.preventDefault();
-    const $favorite = $(this);
-    const productId = $favorite.data("product-id");
+    const favorite = $(this);
+    const product = favorite.closest(".card");
+    const productId = favorite.data("product-id");
 
     // Проверяем авторизацию
     if (!isUserLoggedIn()) {
@@ -13,10 +14,11 @@ jQuery(document).ready(function ($) {
       return;
     }
 
-    $favorite.addClass("loading");
+    product.addClass("loading-amination");
+
 
     $.ajax({
-      url: favorites_ajax.ajaxurl, // Используем переданную переменную
+      url: favorites_ajax.ajax_url, // Используем переданную переменную
       type: "POST",
       data: {
         action: "toggle_favorite",
@@ -24,12 +26,14 @@ jQuery(document).ready(function ($) {
         nonce: favorites_ajax.nonce // Добавляем nonce
       },
       dataType: "json",
+      beforeSend: function() {
+      },
       success: function (response) {
         if (response.success) {
-          $favorite.toggleClass("active", response.data.is_favorite);
+          favorite.toggleClass("active", response.data.is_favorite);
 
           // Обновляем SVG иконку
-          updateFavoriteIcon($favorite, response.data.is_favorite);
+          updateFavoriteIcon(favorite, response.data.is_favorite);
 
           // Показываем уведомление
           window.flsNotifications.success(
@@ -48,7 +52,7 @@ jQuery(document).ready(function ($) {
         console.error("AJAX Error:", error);
       },
       complete: function () {
-        $favorite.removeClass("loading");
+        product.removeClass("loading-amination");
       },
     });
   });

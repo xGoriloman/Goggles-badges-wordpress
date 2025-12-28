@@ -12,6 +12,16 @@ get_header();
 ?>
 
 <main class="page">
+    <!-- Категории -->
+    <div class="popular-products__category scroll-animate">
+        <ul>
+            <li class='active'><a class="active scroll-animate" href="#" data-category="new" data-type="new">Новинки</a></li>
+            <li><a class="scroll-animate" href="#" data-category="product_brand" data-type="brands">Бренды</a></li>
+            <li><a class="scroll-animate" href="#" data-category="man" data-type="category">Мужское</a></li>
+            <li><a class="scroll-animate" href="#" data-category="woman" data-type="category">Женское</a></li>
+            <li><a class="scroll-animate" href="#" data-category="aksessuary" data-type="category">Аксессуары</a></li>
+        </ul>
+    </div>
     <!-- Промо-секция -->
     <section class="section__promo promo scroll-animate">
         <div class="promo__container">
@@ -33,17 +43,7 @@ get_header();
 
     <!-- Популярные товары -->
     <section class="section__popular-products popular-products">
-        <div class="popular-products__container">            
-            <!-- Категории -->
-            <div class="popular-products__category scroll-animate">
-                <ul>
-                    <li class='active'><a class="active scroll-animate" href="#" data-category="new" data-type="new">Новинки</a></li>
-                    <li><a class="scroll-animate" href="#" data-category="product_brand" data-type="brands">Бренды</a></li>
-                    <li><a class="scroll-animate" href="#" data-category="man" data-type="category">Мужское</a></li>
-                    <li><a class="scroll-animate" href="#" data-category="woman" data-type="category">Женское</a></li>
-                    <li><a class="scroll-animate" href="#" data-category="aksessuary" data-type="category">Аксессуары</a></li>
-                </ul>
-            </div>
+        <div class="popular-products__container">
             
             <!-- Сетка товаров -->
             <div class="popular-products products" id="products-grid">

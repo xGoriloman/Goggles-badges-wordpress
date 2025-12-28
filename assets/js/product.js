@@ -66,3 +66,7 @@ jQuery(document).ready(function ($) {
   // Инициализация количества
   initProductQuantity();
 });
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+});
